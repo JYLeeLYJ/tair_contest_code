@@ -30,7 +30,7 @@ int main() {
     Slice v;
     v.size = 80;
     int times = 100;
-    while (times--){
+    while (times--) {
         k.data = random_str(16);
         v.data = random_str(80);
         db->Set(k, v);

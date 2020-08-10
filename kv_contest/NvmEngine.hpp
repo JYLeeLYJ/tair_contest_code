@@ -7,7 +7,7 @@ class NvmEngine : DB {
 public:
     static Status Recover(const std::string& name, DB** dbptr);
     Status Get(const Slice& key, std::string* value);
-    Status Set(const Slice& key, std::string& value);
+    Status Set(const Slice& key, const Slice& value);
     ~NvmEngine();
 private:
 };

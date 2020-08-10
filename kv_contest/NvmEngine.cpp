@@ -13,7 +13,7 @@ Status NvmEngine::Recover(const std::string& name, DB** dbptr) {
 Status NvmEngine::Get(const Slice& key, std::string* value) {
     return Ok;
 }
-Status NvmEngine::Set(const Slice& key, std::string& value) {
+Status NvmEngine::Set(const Slice& key, const Slice& value) {
     return Ok;
 }
 
