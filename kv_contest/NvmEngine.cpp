@@ -1,7 +1,7 @@
 
 #include <NvmEngine.hpp>
 
-Status DB::Recover(const std::string& name, DB** dbptr) {
+Status DB::Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr) {
     return NvmEngine::Recover(name, dbptr);
 }
 
@@ -18,4 +18,3 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 }
 
 NvmEngine::~NvmEngine() {}
-

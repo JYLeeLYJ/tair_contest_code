@@ -29,7 +29,7 @@ public:
     std::mutex mut;
 
 
-    static Status Recover(const std::string& name, DB** dbptr);
+    static Status Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr);
     Status Get(const Slice& key, std::string* value) override;
     Status Set(const Slice& key, const Slice& value) override;
     void persist(void* addr, uint32_t len);

@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-Status DB::Recover(const std::string& name, DB** dbptr) {
+Status DB::Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr) {
     return NvmExample::Recover(name, dbptr);
 }
 
@@ -63,7 +63,7 @@ Status NvmExample::recover(const char* path, uint32_t size) {
     return Ok;
 }
 
-Status NvmExample::Recover(const std::string& name, DB** dbptr) {
+Status NvmExample::Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr) {
     NvmExample* db = new NvmExample;
     *dbptr = db;
     const int SIZE = 0x1000000;
