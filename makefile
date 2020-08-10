@@ -1,6 +1,6 @@
 CLEAN_FILES = # deliberately empty, so we can append below.
 CXX=g++
-PLATFORM_LDFLAGS= -lpthread -lrt -pmem -lpmemobj
+PLATFORM_LDFLAGS= -lpthread -lrt
 PLATFORM_CXXFLAGS= -std=c++11
 PROFILING_FLAGS=-pg
 OPT=
@@ -37,16 +37,13 @@ OPT += $(PROFILING_FLAGS)
 DEBUG_SUFFIX = "_debug"
 endif
 
-# ----------------------------------------------
-SRC_PATH = $(CURDIR)
-
 # ----------------Dependences-------------------
 
 INCLUDE_PATH = -I./ 
 
 # ---------------End Dependences----------------
 
-LIB_SOURCES := $(wildcard $(SRC_PATH)/*.cpp)
+LIB_SOURCES := $(wildcard $(SRC_PATH)/*.cc)
 
 #-----------------------------------------------
 
@@ -91,39 +88,30 @@ CXXFLAGS += $(WARNING_FLAGS) $(INCLUDE_PATH) $(PLATFORM_CXXFLAGS) $(OPT)
 
 LDFLAGS += $(PLATFORM_LDFLAGS)
 
-LIBOBJECTS = $(LIB_SOURCES:.cpp=.o)
-# if user didn't config LIBNAME, set the default
-ifeq ($(LIBNAME),)
-# we should only run benchmark in production with DEBUG_LEVEL 0
-LIBNAME=libengine$(DEBUG_SUFFIX)
+# ----------------------------------------------
+ifeq ($(TARGET_ENGINE),)
+TARGET_ENGINE = kv_contest
 endif
+SUB_PATH = $(CURDIR)/$(TARGET_ENGINE)
 
-ifeq ($(LIBOUTPUT),)
-LIBOUTPUT=$(CURDIR)/lib
-endif
-
-ifeq ($(EXEC_DIR),)
-EXEC_DIR=$(CURDIR)
-endif
-
+LIBOUTPUT = $(CURDIR)/lib
 dummy := $(shell mkdir -p $(LIBOUTPUT))
 LIBRARY = $(LIBOUTPUT)/${LIBNAME}.a
-INCLUDE_PATH += -I$(EXEC_DIR)
 
 .PHONY: clean dbg all
 
-%.o: %.cpp
+%.o: %.cc
 	  $(AM_V_CC)$(CXX) $(CXXFLAGS) -c $< -o $@
 
 all: $(LIBRARY)
 
 dbg: $(LIBRARY)
 
-$(LIBRARY): $(LIBOBJECTS)
-	$(AM_V_at)rm -f $@
-	$(AM_V_at)$(AR) $(ARFLAGS) $@ $(LIBOBJECTS)
+$(LIBRARY):
+	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR)
 	
 clean:
+	make -C $(SUB_PATH)  LIBOUTPUT=$(LIBOUTPUT) clean
 	rm -f $(LIBRARY)
 	rm -rf $(CLEAN_FILES)
 	rm -rf $(LIBOUTPUT)

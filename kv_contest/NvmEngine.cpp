@@ -1,6 +1,12 @@
 
 #include <NvmEngine.hpp>
 
+Status DB::Recover(const std::string& name, DB** dbptr) {
+    return NvmEngine::Recover(name, dbptr);
+}
+
+DB::~DB() {}
+
 Status NvmEngine::Recover(const std::string& name, DB** dbptr) {
     return Ok;
 }
