@@ -1,13 +1,12 @@
+#include "NvmEngine.hpp"
 
-#include <NvmEngine.hpp>
-
-Status DB::Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr) {
-    return NvmEngine::Recover(name, dbptr);
+Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
+    return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
 DB::~DB() {}
 
-Status NvmEngine::Recover(const std::string& name, DB** dbptr) {
+Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
     return Ok;
 }
 Status NvmEngine::Get(const Slice& key, std::string* value) {

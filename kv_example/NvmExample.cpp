@@ -1,19 +1,20 @@
+#include "NvmExample.hpp"
+
 #include <libpmem.h>
 
-#include <NvmExample.hpp>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
-Status DB::Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr) {
-    return NvmExample::Recover(name, dbptr);
+Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
+    return NvmExample::CreateOrOpen(name, dbptr);
 }
 
 DB::~DB() {}
 
-void NvmExample::persist(void* addr, uint32_t len) {
+void NvmExample::Persist(void* addr, uint32_t len) {
     if (is_pmem)
         pmem_persist(addr, len);
     else
@@ -42,7 +43,10 @@ void NvmExample::do_log(const struct Slice* key, const struct Slice* val) {
 }
 
 Status NvmExample::recover(const char* path, uint32_t size) {
-    if ((pmem.pmemaddr = (char*)pmem_map_file(path, size, PMEM_FILE_CREATE, 0666, &mapped_len, &is_pmem)) == NULL) {
+    if ((pmem.pmemaddr = (char*)pmem_map_file(path, size,
+                                              PMEM_FILE_CREATE,
+                                              0666, &mapped_len,
+                                              &is_pmem)) == NULL) {
         return IOError;
     }
     if (*pmem.sequence != 0) {
@@ -63,11 +67,11 @@ Status NvmExample::recover(const char* path, uint32_t size) {
     return Ok;
 }
 
-Status NvmExample::Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr) {
-    NvmExample* db = new NvmExample;
+Status NvmExample::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
+    NvmExample* db = new NvmExample(name, log_file);
     *dbptr = db;
-    const int SIZE = 0x1000000;
-    return db->recover(name.c_str(), SIZE);
+
+    return ;
 }
 
 Status NvmExample::Get(const Slice& key, std::string* value) {

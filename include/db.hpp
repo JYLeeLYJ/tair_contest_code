@@ -2,6 +2,7 @@
 #define TAIR_CONTEST_INCLUDE_DB_H_
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 enum Status : unsigned char {
@@ -12,21 +13,46 @@ enum Status : unsigned char {
 
 };
 
-struct Slice {
-    char* data;
-    uint64_t size;
+class Slice {
+public:
+    Slice() : _data(nullptr), _size(0) {}
+    Slice(char* data) : _data(data) {
+        _size = strlen(_data);
+    }
+    Slice(char* data, uint64_t size) : _data(data), _size(size) {}
+
+    char*& data() {
+        return _data;
+    }
+
+    uint64_t& size() {
+        return _size;
+    }
+
+    bool operator==(Slice& b) {
+        if (b.size() == this->_size) {
+            return memcmp(this->_data, b.data(), b.size()) == 0;
+        }
+    }
+    std::string to_string() {
+        return std::string(_data, _size);
+    }
+
+private:
+    char* _data;
+    uint64_t _size;
 };
 
 class DB {
 public:
     /*
-     *  Recover or create db from pmem-file.
+     *  Create or ecover db from pmem-file.
      *  It's not required to implement the recovery in round 1.
      *  You can assume that the file does not exist.
      *  You should write your log to the log_file. 
      *  Stdout, stderr would be redirect to /dev/null.
      */
-    static Status Recover(const std::string& name, DB** dbptr, FILE* log_file = nullptr);
+    static Status CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file = nullptr);
 
     /*
      *  Get the value of key.
