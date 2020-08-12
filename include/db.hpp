@@ -58,7 +58,7 @@ private:
 class DB {
 public:
     /*
-     *  Create or ecover db from pmem-file.
+     *  Create or recover db from pmem-file.
      *  It's not required to implement the recovery in round 1.
      *  You can assume that the file does not exist.
      *  You should write your log to the log_file. 
@@ -68,7 +68,7 @@ public:
 
     /*
      *  Get the value of key.
-     *  If the key does not exist the KeyNotFound is returned.
+     *  If the key does not exist the NotFound is returned.
      */
     virtual Status Get(const Slice& key, std::string* value) = 0;
 
