@@ -1,4 +1,4 @@
-#include <include/db.h>
+#include <include/db.hpp>
 
 char *random_str(unsigned int size) {
     char *str = (char *)malloc(size + 1);
@@ -24,21 +24,21 @@ char *random_str(unsigned int size) {
 
 int main() {
     DB *db = nullptr;
-    DB::Recover("./tmp", &db);
+    DB::CreateOrOpen("./tmp", &db);
     Slice k;
-    k.size = 16;
+    k.size() = 16;
     Slice v;
-    v.size = 80;
+    v.size() = 80;
     int times = 100;
     while (times--) {
-        k.data = random_str(16);
-        v.data = random_str(80);
+        k.data() = random_str(16);
+        v.data() = random_str(80);
         db->Set(k, v);
         std::string a;
         db->Get(k, &a);
         printf("%s\n", a.c_str());
-        free(k.data);
-        free(v.data);
+        free(k.data());
+        free(v.data());
     }
     return 0;
 }
