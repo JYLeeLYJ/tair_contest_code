@@ -24,7 +24,7 @@ LogAppender::RecoveryHelper::RecoveryHelper(char* pmem_base, uint64_t* end_off)
 
 std::pair<Slice, Slice> LogAppender::RecoveryHelper::Next() {
     Slice key, val;
-    if (_current <= _sequence) {
+    if (_current < _sequence) {
         _current += 1;
         _get_slice(key);
         _get_slice(val);
