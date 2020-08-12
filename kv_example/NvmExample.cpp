@@ -14,83 +14,108 @@ Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
 
 DB::~DB() {}
 
-void NvmExample::Persist(void* addr, uint32_t len) {
-    if (is_pmem)
+LogAppender::RecoveryHelper::RecoveryHelper(char* pmem_base, uint64_t* end_off)
+    : _end_off(end_off),
+      _pmem_base(pmem_base),
+      _sequence(*(uint64_t*)pmem_base),
+      _current(0) {
+    *_end_off = sizeof(uint64_t);
+}
+
+std::pair<Slice, Slice> LogAppender::RecoveryHelper::Next() {
+    Slice key, val;
+    if (_current <= _sequence) {
+        _current += 1;
+        _get_slice(key);
+        _get_slice(val);
+    }
+    return std::make_pair(key, val);
+}
+
+void LogAppender::RecoveryHelper::_get_slice(Slice& slice) {
+    char* pmem_addr = _pmem_base + *_end_off;
+    slice.size() = *(uint64_t*)pmem_addr;
+    pmem_addr += sizeof(uint64_t);
+    slice.data() = pmem_addr;
+    pmem_addr += slice.size();
+    *_end_off = pmem_addr - _pmem_base;
+}
+
+LogAppender::LogAppender(const char* file_name, size_t size) {
+    if ((_pmem.pmem_base = (char*)pmem_map_file(file_name, size,
+                                                PMEM_FILE_CREATE,
+                                                0666, &_mapped_len,
+                                                &_is_pmem)) == NULL) {
+        perror("Pmem map file failed");
+        exit(1);
+    }
+}
+
+void LogAppender::Recovery(std::unordered_map<std::string, Slice>& hash_map) {
+    RecoveryHelper helper(_pmem.pmem_base, &_end_off);
+    while (true) {
+        auto kv = helper.Next();
+        if (kv.first.data() == nullptr)
+            break;
+        hash_map[kv.first.to_string()] = kv.second;
+    }
+}
+
+std::pair<Slice, Slice> LogAppender::Append(const Slice& key, const Slice& val) {
+    Slice nvm_key = _push_back(key);
+    Slice nvm_val = _push_back(val);
+    (*_pmem.sequence)++;
+    return std::make_pair(nvm_key, nvm_val);
+}
+
+LogAppender::~LogAppender() {
+    pmem_unmap(_pmem.pmem_base, _mapped_len);
+}
+
+void LogAppender::_persist(void* addr, uint32_t len) {
+    if (_is_pmem)
         pmem_persist(addr, len);
     else
         pmem_msync(addr, len);
 }
 
-void NvmExample::do_log(const struct Slice* key, const struct Slice* val) {
-    log_t log;
-    log.key_len = key->size;
-    if (val) {
-        log.val_len = val->size;
-    }
-    char* ptr = pmem.pmemaddr + end_off;
-    memcpy(ptr, &log, sizeof(log_t));
-    persist(ptr, sizeof(log));
-    ptr += sizeof(log_t);
-    memcpy(ptr, key->data, log.key_len);
-    persist(ptr, log.key_len);
-    ptr += log.key_len;
-    memcpy(ptr, val->data, log.val_len);
-    persist(ptr, log.val_len);
-    ptr += log.val_len;
-    end_off = ptr - pmem.pmemaddr;
-    (*pmem.sequence)++;
-    persist(pmem.sequence, sizeof(uint32_t));
+Slice LogAppender::_push_back(const Slice& slice) {
+    char* ptr = _pmem.pmem_base + _end_off;
+    *(uint64_t*)ptr = slice.size();
+    _persist(ptr, sizeof(uint64_t));
+    ptr += sizeof(uint64_t);
+    Slice ret(ptr, slice.size());
+    memcpy(ptr, slice.data(), slice.size());
+    _persist(ptr, slice.size());
+    _end_off = _end_off + sizeof(uint64_t) + slice.size();
+    return ret;
 }
 
-Status NvmExample::recover(const char* path, uint32_t size) {
-    if ((pmem.pmemaddr = (char*)pmem_map_file(path, size,
-                                              PMEM_FILE_CREATE,
-                                              0666, &mapped_len,
-                                              &is_pmem)) == NULL) {
-        return IOError;
-    }
-    if (*pmem.sequence != 0) {
-        char* now = pmem.pmemaddr + 4;
-        for (unsigned int i = 0; i < *pmem.sequence; i++) {
-            log_t* log = (log_t*)now;
-            now += sizeof(log_t);
-            string key(now, log->key_len);
-            now += log->key_len;
-            string val(now, log->val_len);
-            now += log->val_len;
-            data[std::move(key)] = std::move(val);
-        }
-        end_off = now - pmem.pmemaddr;
-    } else {
-        end_off = 4;
-    }
-    return Ok;
+NvmExample::NvmExample(const std::string& name)
+    : logger(name.c_str(), SIZE) {
+    logger.Recovery(hash_map);
 }
 
 Status NvmExample::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
-    NvmExample* db = new NvmExample(name, log_file);
+    NvmExample* db = new NvmExample(name);
     *dbptr = db;
-
-    return ;
+    return Ok;
 }
 
 Status NvmExample::Get(const Slice& key, std::string* value) {
-    std::string k(key.data, key.size);
     std::lock_guard<std::mutex> lock(mut);
-    auto kv = data.find(std::move(k));
-    if (kv == data.end()) {
+    auto kv = hash_map.find(key.to_string());
+    if (kv == hash_map.end()) {
         return NotFound;
     }
-    value->assign(kv->second);
+    *value = kv->second.to_string();
     return Ok;
 }
 
 Status NvmExample::Set(const Slice& key, const Slice& value) {
-    std::string key_s(key.data, key.size);
-    std::string val_s(value.data, value.size);
     std::lock_guard<std::mutex> lock(mut);
-    do_log(&key, &value);
-    data[std::move(key_s)] = std::move(val_s);
+    auto kv = logger.Append(key, value);
+    hash_map[kv.first.to_string()] = kv.second;
     return Ok;
 }
 

@@ -10,44 +10,53 @@
 #include <string>
 #include <unordered_map>
 
-using std::string;
-
 class LogAppender {
 public:
-    LogAppender(char* file_name, size_t size);
-    std::pair<> (Slice& key, Slice& val);
+    LogAppender(const char* file_name, size_t size);
+    std::pair<Slice, Slice> Append(const Slice& key, const Slice& val);
+    void Recovery(std::unordered_map<std::string, Slice>& hash_map);
+    ~LogAppender();
 
-    struct log_t {
-        uint32_t key_len;
-        uint32_t val_len;
+    class RecoveryHelper {
+    public:
+        RecoveryHelper(char* pmem_base, uint64_t* end_off);
+        std::pair<Slice, Slice> Next();
+
+    private:
+        void _get_slice(Slice& slice);
+        uint64_t* _end_off;
+        char* _pmem_base;
+        uint64_t _sequence;
+        uint64_t _current;
     };
 
 private:
+    Slice _push_back(const Slice& key);
+    void _persist(void* addr, uint32_t len);
     union {
         uint64_t* sequence;
         char* pmem_base;
-    } pmem;
-    size_t mapped_len;
-    int is_pmem;
-    uint64_t end_off;
+    } _pmem;
+    size_t _mapped_len;
+    int _is_pmem;
+    uint64_t _end_off;
 };
 
 class NvmExample : DB {
 public:
-    std::unordered_map<string, string> data;
-    std::mutex mut;
-    const int SIZE = 0x1000000;
+    const static size_t SIZE = 0x1000000;
 
     static Status CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file = nullptr);
 
-    NvmExample(const std::string& name, FILE* log_file);
+    NvmExample(const std::string& name);
     Status Get(const Slice& key, std::string* value) override;
     Status Set(const Slice& key, const Slice& value) override;
-    void Persist(void* addr, uint32_t len);
-    void do_log(const struct Slice* key, const struct Slice* val);
     ~NvmExample() override;
 
-    Status recover(const char* path, uint32_t size);
+private:
+    LogAppender logger;
+    std::mutex mut;
+    std::unordered_map<std::string, Slice> hash_map;
 };
 
 #endif

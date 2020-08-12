@@ -25,7 +25,15 @@ public:
         return _data;
     }
 
+    char* data() const {
+        return _data;
+    }
+
     uint64_t& size() {
+        return _size;
+    }
+
+    uint64_t size() const {
         return _size;
     }
 
@@ -35,6 +43,10 @@ public:
         }
     }
     std::string to_string() {
+        return std::string(_data, _size);
+    }
+
+    std::string to_string() const {
         return std::string(_data, _size);
     }
 
