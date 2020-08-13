@@ -22,7 +22,7 @@ C/C++
 
 ##### 2.   程序目标
 
-请仔细阅读tair_contest/include/db.h代码了解接口定义，通过实现子类NvmEngine（在tair_contest/nvm_engine目录下），参赛者通过编写代码，完善NvmEngine来实现自己的kv存储引擎；
+请仔细阅读tair_contest/include/db.hpp代码了解接口定义，通过实现子类NvmEngine（在tair_contest/nvm_engine目录下），参赛者通过编写代码，完善NvmEngine来实现自己的kv存储引擎；
 
 ##### 3.   参赛方法说明
 
