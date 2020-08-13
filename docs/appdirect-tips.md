@@ -30,7 +30,7 @@ FENCE：内存屏障（Memory Barrier），起着约束其前后访存指令之�
 #include <string.h>
 #include <fcntl.h>
 
-#define PATH "/tmp/pmem/pmem-file"
+#define PATH "/mnt/pmem/pmem-file"
 #define SIZE 4096
 
 int main() {
