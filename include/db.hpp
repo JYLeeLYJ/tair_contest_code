@@ -41,6 +41,7 @@ public:
         if (b.size() == this->_size) {
             return memcmp(this->_data, b.data(), b.size()) == 0;
         }
+        return false;
     }
     std::string to_string() {
         return std::string(_data, _size);
