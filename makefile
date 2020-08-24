@@ -90,7 +90,7 @@ LDFLAGS += $(PLATFORM_LDFLAGS)
 
 # ----------------------------------------------
 ifeq ($(TARGET_ENGINE),)
-TARGET_ENGINE = nvm_engine
+TARGET_ENGINE = nvm_example
 endif
 SUB_PATH = $(CURDIR)/$(TARGET_ENGINE)
 
