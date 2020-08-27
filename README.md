@@ -23,7 +23,7 @@ Tair是阿里云自研的云原生内存数据库，接口兼容开源Redis/Memc
 
 [基于持久化内存的HelloWorld例子(libpmem)](https://software.intel.com/content/www/us/en/develop/articles/code-sample-create-a-c-persistent-memory-hello-world-program-using-libpmem.html)
 
-[基于持久化内存的HelloWorld例子(mmap)](docs/appdirect-tips)
+[基于持久化内存的HelloWorld例子(mmap)](https://code.aliyun.com/db_contest_2nd/tair-contest/blob/master/docs/appdirect-tips.md)
 
 ### 赛题规则
 
