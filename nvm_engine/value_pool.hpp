@@ -7,6 +7,8 @@
 #include <utility>
 #include <string>
 #include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "include/utils.hpp"
 
@@ -25,7 +27,7 @@ public:
             perror("failed to open the file");
             exit(1);
         }
-        _base = (char*)mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        _base = (char*)mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
         #endif
 
         if(_base == MAP_FAILED || _base == NULL) {
