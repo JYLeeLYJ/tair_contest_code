@@ -99,7 +99,7 @@ LIBOUTPUT = $(CURDIR)/lib
 dummy := $(shell mkdir -p $(LIBOUTPUT))
 LIBRARY = $(LIBOUTPUT)/${LIBNAME}.a
 
-.PHONY: clean dbg all
+.PHONY: clean dbg all base clean test bench
 
 %.o: %.cc
 	  $(AM_V_CC)$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -124,6 +124,9 @@ clean:
 	rm -rf $(LIBOUTPUT)
 	find $(SRC_PATH) -maxdepth 1 -name "*.[oda]*" -exec rm -f {} \;
 	find $(SRC_PATH) -maxdepth 1 -type f -regex ".*\.\(\(gcda\)\|\(gcno\)\)" -exec rm {} \;
+
+test:
+	make -C ./test test
 
 bench:
 	make -C ./judge bench

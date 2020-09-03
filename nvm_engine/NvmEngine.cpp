@@ -1,7 +1,7 @@
+#include<functional>
+
 #include "NvmEngine.hpp"
 #include "include/utils.hpp"
-
-constexpr size_t SIZE = 64 * 1024 * 1024;   //64M
 
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
     return NvmEngine::CreateOrOpen(name, dbptr);
@@ -15,24 +15,25 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 }
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
-    Read_Guard guard(lock);
-    auto k = key.to_string();
-    auto p = hash_map.find(k);
-    if (p == hash_map.end())
+    std::lock_guard<std::mutex> lk(mut);
+    auto index = std::hash<std::string>{}(key.to_string()) % SIZE;
+    if (bits.test(index) == false)
         return NotFound;
-    else 
-        *value = hash_map[k];
-    return Ok;
+    else{
+        *value = pool.get_value(index);
+        return Ok;
+    } 
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
-    Wrtie_Guard guard(lock);
-    hash_map[key.to_string()] = value.to_string();
+    std::lock_guard<std::mutex> lk(mut);
+    auto index = std::hash<std::string>{}(key.to_string()) % SIZE;
+    pool.write_value(index , value.to_string());
+    bits.set(index);
     return Ok;
 }
 
-NvmEngine::NvmEngine(const std::string & file_name) 
-:hash_map(SIZE){
+NvmEngine::NvmEngine(const std::string & file_name) {
     UNUSED(file_name);
 }
 

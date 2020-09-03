@@ -40,9 +40,9 @@ int main() {
         v.data() = random_str(80);
         db->Set(k, v);
         std::string a;
-        db->Get(k, &a);
+        auto sta = db->Get(k, &a);
 
-        if (!assert_is_same(a.data() , v.data())){
+        if (sta != Status::Ok || !assert_is_same(a.data() , v.data())){
             printf("[error]:read {%s} , write {%s} \n" , a.data() , v.data());
         }
 

@@ -4,4 +4,10 @@ g++ -std=c++11 -o test -g -I.. test.cpp -L../lib -lengine -lpthread -lrt -lz #-l
 
 rm -rf ./tmp
 
+echo ""
+echo "********** TEST *************"
+
 ./test
+
+echo "********** FIN **************"
+echo 
