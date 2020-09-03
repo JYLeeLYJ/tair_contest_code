@@ -15,7 +15,7 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 }
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
-    Read_Guard guard(lock);
+    std::lock_guard<std::mutex> guard(mut);
     auto k = key.to_string();
     auto p = hash_map.find(k);
     if (p == hash_map.end())
@@ -26,7 +26,7 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
-    Wrtie_Guard guard(lock);
+    std::lock_guard<std::mutex> guard(mut);
     hash_map[key.to_string()] = value.to_string();
     return Ok;
 }

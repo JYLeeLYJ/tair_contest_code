@@ -2,8 +2,7 @@
 #define TAIR_CONTEST_KV_CONTEST_NVM_ENGINE_H_
 
 #include "include/db.hpp"
-#include "include/rwlock.hpp"
-
+#include <mutex>
 #include <unordered_map>
 
 class NvmEngine : DB {
@@ -15,7 +14,7 @@ public:
     explicit NvmEngine(const std::string & file_name);
     ~NvmEngine();
 private:
-    RW_Lock lock;
+    std::mutex mut;
     std::unordered_map<std::string , std::string> hash_map;
 };
 

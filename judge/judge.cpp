@@ -11,6 +11,7 @@
 #include <random>
 #include <atomic> 
 #include <immintrin.h>
+#include <chrono>
 #include "random.h"
 
 #include "db.hpp"
@@ -20,8 +21,8 @@ using namespace std;
 typedef unsigned long long ull;
 
 const int NUM_THREADS = 16;
-int PER_SET = 48000;
-int PER_GET = 48000;
+int PER_SET = 480000;
+int PER_GET = 480000;
 const ull BASE = 199997;
 struct  timeval TIME_START, TIME_END;
 const int MAX_POOL_SIZE = 1e4;
@@ -38,6 +39,9 @@ ull seed[] = {
     217, 89, 73, 31, 17,
     255, 103, 207
 };
+
+std::atomic<int> cnt_get{0};
+std::atomic<int> cnt_set{0};
 
 
 void init_pool_seed() {
@@ -95,10 +99,12 @@ void* get_pure(void *id) {
             Slice data_key((char*)(key_pool + id), 16);
             Slice data_value((char*)start, 80);
 	        db->Set(data_key, data_value);
+            ++cnt_set;
         } else {
             // 读
             Slice data_key((char*)(key_pool + id), 16);
             db->Get(data_key, &value);
+            ++cnt_get;
         }
     }
     return 0;
@@ -142,7 +148,6 @@ void test_set_pure(pthread_t * tids) {
 
 }
 
-
 void test_set_get(pthread_t * tids) {
     for(int i = 0; i < NUM_THREADS; ++i) {
         int ret = pthread_create(&tids[i], NULL, get_pure, seed+i);
@@ -153,15 +158,11 @@ void test_set_get(pthread_t * tids) {
     }
 }
 
-
-
 int main(int argc, char *argv[]) {
 
     config_parse(argc, argv);
 
     init_pool_seed();
-
-    gettimeofday(&TIME_START,NULL);
 
     FILE * log_file =  fopen("./performance.log", "w");
 
@@ -169,16 +170,17 @@ int main(int argc, char *argv[]) {
 
     pthread_t tids[NUM_THREADS];
 
+    auto t1 = std::chrono::high_resolution_clock::now();
     test_set_pure(tids);
-    gettimeofday(&TIME_END,NULL);
-
-    ull sec_set = 1000000 * (TIME_END.tv_sec-TIME_START.tv_sec)+ (TIME_END.tv_usec-TIME_START.tv_usec);
+    auto t2 = std::chrono::high_resolution_clock::now();
     test_set_get(tids);
-    gettimeofday(&TIME_END,NULL);
-    ull sec_total = 1000000 * (TIME_END.tv_sec-TIME_START.tv_sec)+ (TIME_END.tv_usec-TIME_START.tv_usec);
-    ull sec_set_get = sec_total - sec_set;
+    auto t3 = std::chrono::high_resolution_clock::now();
 
-    printf("%.2lf\n%.2lf\n", sec_set/1000.0, sec_set_get/1000.0);
+    using namespace std::chrono;
+    using ms_t = duration<float , std::milli>;
+
+    printf("time set:%.2lf\ntime set/get:%.2lf\n", ms_t(t2 - t1).count(), ms_t(t3-t2).count());
+    printf("cnt_get = %d , cnt_set = %d\n" , cnt_get.load(),cnt_set.load());
 
     return 0;
 }

@@ -37,9 +37,6 @@ OPT += $(PROFILING_FLAGS)
 DEBUG_SUFFIX = "_debug"
 endif
 
-CLEAN_FILES += ./judge/judge
-CLEAN_FILES += ./test/test
-
 # ----------------Dependences-------------------
 
 INCLUDE_PATH = -I./ 
@@ -96,6 +93,7 @@ ifeq ($(TARGET_ENGINE),)
 TARGET_ENGINE = nvm_engine
 endif
 SUB_PATH = $(CURDIR)/$(TARGET_ENGINE)
+BASE_SUB_PATH = $(CURDIR)/nvm_baseline
 
 LIBOUTPUT = $(CURDIR)/lib
 dummy := $(shell mkdir -p $(LIBOUTPUT))
@@ -110,13 +108,23 @@ all: $(LIBRARY)
 
 dbg: $(LIBRARY)
 
+base: 
+	$(AM_V_at)make -C $(BASE_SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR)
+
 $(LIBRARY):
 	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR)
 	
 clean:
 	make -C $(SUB_PATH)  LIBOUTPUT=$(LIBOUTPUT) clean
+	make -C $(BASE_SUB_PATH) LIBOUTPUT=$(LIBOUTPUT) clean
+	make -C ./judge clean
+	make -C ./test clean
 	rm -f $(LIBRARY)
 	rm -rf $(CLEAN_FILES)
 	rm -rf $(LIBOUTPUT)
 	find $(SRC_PATH) -maxdepth 1 -name "*.[oda]*" -exec rm -f {} \;
 	find $(SRC_PATH) -maxdepth 1 -type f -regex ".*\.\(\(gcda\)\|\(gcno\)\)" -exec rm {} \;
+
+bench:
+	make -C ./judge bench
+

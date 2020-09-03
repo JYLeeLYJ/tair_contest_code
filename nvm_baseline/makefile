@@ -95,7 +95,7 @@ LIBOBJECTS = $(LIB_SOURCES:.cpp=.o)
 # if user didn't config LIBNAME, set the default
 ifeq ($(LIBNAME),)
 # we should only run benchmark in production with DEBUG_LEVEL 0
-LIBNAME=libengine$(DEBUG_SUFFIX)
+LIBNAME=libengine_base$(DEBUG_SUFFIX)
 endif
 
 ifeq ($(LIBOUTPUT),)

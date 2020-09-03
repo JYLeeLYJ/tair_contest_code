@@ -45,7 +45,7 @@ public:
     
     void release_write(){
         std::unique_lock<std::mutex> lk(mut);
-        is_write == false;
+        is_write = false;
         if (--write_cnt == 0) 
             read_cond.notify_all();
         else 
@@ -54,9 +54,9 @@ public:
     }
 
 private:
-    int read_cnt{0} ;
-    int write_cnt{0} ;
-    bool is_write{false};
+    volatile int read_cnt{0} ;
+    volatile int write_cnt{0} ;
+    volatile bool is_write{false};
 
     std::mutex mut{};
     std::condition_variable read_cond{};
