@@ -39,7 +39,8 @@ public:
     
     void release_read(){
         std::unique_lock<std::mutex> lk(mut);
-        if(--read_cnt == 0) write_cond.notify_one();
+        if(--read_cnt == 0) 
+            write_cond.notify_one();
     }
     
     void release_write(){

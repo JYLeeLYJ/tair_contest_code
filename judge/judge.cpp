@@ -68,7 +68,7 @@ void* set_pure(void * id) {
             memcpy(key_pool + POOL_TOP, start, 16);           
             POOL_TOP += 2;
         }
-	    // db->Set(data_key, data_value);
+	    db->Set(data_key, data_value);
     }
     return 0;
 }
@@ -94,11 +94,11 @@ void* get_pure(void *id) {
             unsigned int* start = rnd.nextUnsignedInt();
             Slice data_key((char*)(key_pool + id), 16);
             Slice data_value((char*)start, 80);
-	        // db->Set(data_key, data_value);
+	        db->Set(data_key, data_value);
         } else {
             // 读
             Slice data_key((char*)(key_pool + id), 16);
-            // db->Get(data_key, &value);
+            db->Get(data_key, &value);
         }
     }
     return 0;
