@@ -20,8 +20,8 @@ using namespace std;
 typedef unsigned long long ull;
 
 const int NUM_THREADS = 16;
-int PER_SET = 48000000;
-int PER_GET = 48000000;
+int PER_SET = 48000;
+int PER_GET = 48000;
 const ull BASE = 199997;
 struct  timeval TIME_START, TIME_END;
 const int MAX_POOL_SIZE = 1e4;
