@@ -37,6 +37,9 @@ OPT += $(PROFILING_FLAGS)
 DEBUG_SUFFIX = "_debug"
 endif
 
+CLEAN_FILES += ./judge/judge
+CLEAN_FILES += ./test/test
+
 # ----------------Dependences-------------------
 
 INCLUDE_PATH = -I./ 
