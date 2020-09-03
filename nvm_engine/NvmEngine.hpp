@@ -12,15 +12,15 @@ class NvmEngine : DB {
     static constexpr size_t SIZE = 64 * 1024 * 1024;   //64M
 public:
     static Status CreateOrOpen(const std::string& name, DB** dbptr);
-    Status Get(const Slice& key, std::string* value);
-    Status Set(const Slice& key, const Slice& value);
+    Status Get(const Slice& key, std::string* value) override;
+    Status Set(const Slice& key, const Slice& value) override;
 
     explicit NvmEngine(const std::string & file_name);
-    ~NvmEngine();
+    ~NvmEngine() override;
 private:
     std::mutex mut;
     value_pool<SIZE> pool;
-    std::bitset<SIZE> bits;
+    std::bitset<SIZE> bits{};
 };
 
 #endif

@@ -33,8 +33,9 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     return Ok;
 }
 
-NvmEngine::NvmEngine(const std::string & file_name) {
-    UNUSED(file_name);
+NvmEngine::NvmEngine(const std::string & file_name) 
+:pool(file_name){
+    
 }
 
 NvmEngine::~NvmEngine() {}
