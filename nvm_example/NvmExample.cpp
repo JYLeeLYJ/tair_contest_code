@@ -102,7 +102,7 @@ Slice LogAppender::_push_back(const Slice& slice) {
     ptr += sizeof(uint64_t);
     Slice ret(ptr, slice.size());
     memcpy(ptr, slice.data(), slice.size());
-    _persist(ptr, slice.size());
+    // _persist(ptr, slice.size());
     _end_off = _end_off + sizeof(uint64_t) + slice.size();
     return ret;
 }

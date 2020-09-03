@@ -22,6 +22,10 @@ char *random_str(unsigned int size) {
     return str;
 }
 
+bool assert_is_same(const char * r , const char * w){
+    return strcmp(r , w) == 0;
+}
+
 int main() {
     DB *db = nullptr;
     DB::CreateOrOpen("./tmp", &db);
@@ -30,15 +34,22 @@ int main() {
     Slice v;
     v.size() = 80;
     int times = 100;
+    printf("[start]...\n");
     while (times--) {
         k.data() = random_str(16);
         v.data() = random_str(80);
         db->Set(k, v);
         std::string a;
         db->Get(k, &a);
-        printf("%s\n", a.c_str());
+
+        if (!assert_is_same(a.data() , v.data())){
+            printf("[error]:read {%s} , write {%s} \n" , a.data() , v.data());
+        }
+
         free(k.data());
         free(v.data());
     }
+
+    printf("[finish]\n");
     return 0;
 }
