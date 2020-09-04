@@ -42,7 +42,7 @@ int main() {
         std::string a;
         auto sta = db->Get(k, &a);
 
-        if (sta != Status::Ok || !assert_is_same(a.data() , v.data())){
+        if (sta != Status::Ok || v.to_string() != a) {
             printf("[error]:read {%s} , write {%s} \n" , a.data() , v.data());
         }
 

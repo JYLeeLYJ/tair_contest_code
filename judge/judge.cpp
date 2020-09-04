@@ -99,12 +99,12 @@ void* get_pure(void *id) {
             Slice data_key((char*)(key_pool + id), 16);
             Slice data_value((char*)start, 80);
 	        db->Set(data_key, data_value);
-            ++cnt_set;
+            // ++cnt_set;
         } else {
             // 读
             Slice data_key((char*)(key_pool + id), 16);
             db->Get(data_key, &value);
-            ++cnt_get;
+            // ++cnt_get;
         }
     }
     return 0;

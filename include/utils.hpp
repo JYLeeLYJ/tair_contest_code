@@ -4,16 +4,16 @@
 
 #define UNUSED(x) (void)x
 
+#include <chrono>
+
+std::chrono::milliseconds operator ""_ms (unsigned long long ms){
+    return std::chrono::milliseconds{ms};
+}
+
 struct disable_copy{
     disable_copy() = default;
     disable_copy(const disable_copy &) = delete;
     disable_copy& operator= (const disable_copy &) = delete;
 };
-
-// struct disable_move{
-//     disable_move() = default;
-//     disable_move(disable_move &&) = delete;
-//     disable_move& operator= (disable_move && )= delete;
-// };
 
 #endif

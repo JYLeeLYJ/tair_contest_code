@@ -12,7 +12,7 @@
 
 #include "include/utils.hpp"
 
-// #define LOCAL_TEST
+#define LOCAL_TEST
 
 template<size_t N>
 class memory_pool:disable_copy{
@@ -66,35 +66,75 @@ protected:
     int _fd{-1};
 };
 
+struct Value{
+
+    static constexpr size_t value_size = 80;
+
+    char data[value_size]{};
+    
+    std::string to_string() const {
+        return std::string(&data[0] , value_size);
+    }
+
+    Value & operator = (const std::string & str) noexcept{
+        memset(data , 0 , value_size);
+        memcpy(data , str.data() , std::min(str.length() , value_size));
+        return * this;
+    }
+};
+
 template<size_t N>
 class value_pool:disable_copy{
 public:
-    static constexpr size_t VALUE_SIZE{80} , KEY_SIZE{16};
+    static constexpr size_t VALUE_SIZE = Value::value_size; 
+    static constexpr size_t KEY_SIZE = 16;
 public:
     explicit value_pool(const std::string & file ) :pmem(file){}
 
     //out of range will lead to undefined behavior
-    std::string operator[] (size_t i) const noexcept{
-        return std::string(pmem.base() + i * VALUE_SIZE  , VALUE_SIZE);
+    // std::string operator[] (size_t i) const noexcept{
+    //     return std::string(pmem.base() + i * VALUE_SIZE  , VALUE_SIZE);
+    // }
+
+    // bool write_value(size_t i , const std::string & str) noexcept{
+    //     if (i >= N)
+    //         return false;
+    //     else {
+    //         auto offset = i * VALUE_SIZE;
+    //         memset(pmem.base() + offset, 0 , VALUE_SIZE );
+    //         memcpy(pmem.base() + offset, str.data() , std::min(VALUE_SIZE,str.length()));
+    //         return true;
+    //     }
+    // }
+
+    // std::string get_value(size_t i) const noexcept{
+    //     return std::string(pmem.base() + i * VALUE_SIZE  , VALUE_SIZE);
+    // }
+
+    //out of range will lead to undefined behavior
+    Value & operator[](size_t i) const noexcept{
+        return value(i);        
     }
 
-    bool write_value(size_t i , const std::string & str) noexcept{
-        if (i >= N)
+    Value & value(size_t i) const noexcept{
+        return data()[i];
+    }
+
+    bool set_value(size_t i , const std::string & str) noexcept{
+        if (i > N)
             return false;
-        else {
-            auto offset = i * VALUE_SIZE;
-            memset(pmem.base() + offset, 0 , VALUE_SIZE );
-            memcpy(pmem.base() + offset, str.data() , std::min(VALUE_SIZE,str.length()));
+        else{
+            data()[i] = str;
             return true;
         }
     }
 
-    std::string get_value(size_t i) const noexcept{
-        return std::string(pmem.base() + i * VALUE_SIZE  , VALUE_SIZE);
-    }
-
 private:
     memory_pool<N * VALUE_SIZE> pmem;
+
+    Value * data() const noexcept{
+        return reinterpret_cast<Value*>(pmem.base());
+    }
 };
 
 #endif
