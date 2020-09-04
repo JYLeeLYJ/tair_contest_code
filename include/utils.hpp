@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-std::chrono::milliseconds operator ""_ms (unsigned long long ms){
+std::chrono::milliseconds operator "" _ms (unsigned long long ms){
     return std::chrono::milliseconds{ms};
 }
 
