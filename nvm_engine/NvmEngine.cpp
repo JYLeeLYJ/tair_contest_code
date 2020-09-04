@@ -2,11 +2,10 @@
 
 #include "NvmEngine.hpp"
 #include "include/utils.hpp"
-// #include "include/logger.hpp"
-
+#include "include/logger.hpp"
 
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
-    // Logger::set_file(log_file);
+    Logger::set_file(log_file);
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
@@ -20,10 +19,14 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 Status NvmEngine::Get(const Slice& key, std::string* value) {
     std::lock_guard<std::mutex> lk(mut);
     auto index = std::hash<std::string>{}(key.to_string()) % SIZE;
-    if (bits.test(index) == false)
+
+    if (bits.test(index) == false){
+        Logger::instance().log("[GET]" + key.to_string() + "[ ............. Not Found]");
         return NotFound;
+    }
     else{
         *value = pool.value(index).to_string();
+        Logger::instance().log(key.to_string()+" , "+ *value);
         return Ok;
     } 
 }
@@ -31,6 +34,8 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
     std::lock_guard<std::mutex> lk(mut);
     auto index = std::hash<std::string>{}(key.to_string()) % SIZE;
+
+    Logger::instance().log("[SET]"+key.to_string() + " , " + value.to_string());
 
     if(!pool.set_value(index , value.to_string()))
         return OutOfMemory;
