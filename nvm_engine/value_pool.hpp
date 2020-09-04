@@ -12,7 +12,7 @@
 
 #include "include/utils.hpp"
 
-#define LOCAL_TEST
+// #define LOCAL_TEST
 
 template<size_t N>
 class memory_pool:disable_copy{
