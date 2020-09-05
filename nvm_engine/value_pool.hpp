@@ -17,16 +17,16 @@ class memory_pool:disable_copy{
 public:
     explicit memory_pool(const std::string file){
 
-        #ifdef LOCAL_TEST
+        // #ifdef LOCAL_TEST
         _base = (char*)mmap(NULL,N , PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED , 0,0);
-        #else 
-        _fd = open(file.c_str(), O_RDWR);
-        if (_fd < 0) {
-            perror("failed to open the file");
-            exit(1);
-        }
-        _base = (char*)mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
-        #endif
+        // #else 
+        // _fd = open(file.c_str(), O_RDWR);
+        // if (_fd < 0) {
+        //     perror("failed to open the file");
+        //     exit(1);
+        // }
+        // _base = (char*)mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
+        // #endif
 
         if(_base == MAP_FAILED || _base == NULL) {
             perror("mmap failed");

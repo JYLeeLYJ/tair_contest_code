@@ -35,6 +35,17 @@ public:
         }
     }
 
+    void sysn_log(const std::string & str){
+
+        static auto beg = std::chrono::high_resolution_clock::now();
+
+        if (file){
+            auto t = std::chrono::high_resolution_clock::now();
+            using min_t = std::chrono::duration<float , std::ratio<60>>;
+            fprintf(file , "%.2f min : %s\n" , static_cast<min_t>(t - beg).count() ,str.data());
+        }
+    }
+
 private:
     explicit Logger()
     :is_running(true) , t([this]{_do_print_log();})
@@ -59,9 +70,11 @@ private:
 
             if (is_running == false) break;
 
-            str = std::move(log_que.front());
-            log_que.pop();
-            if(file) fprintf( file , "%s\n", str.c_str());
+            while(!log_que.empty()){
+                str = std::move(log_que.front());
+                log_que.pop();
+                if(file) fprintf( file , "%s\n", str.c_str());
+            }
         }
     }
 
