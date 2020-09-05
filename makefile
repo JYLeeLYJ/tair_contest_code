@@ -108,12 +108,12 @@ all: $(LIBRARY)
 
 dbg: $(LIBRARY)
 
+$(LIBRARY):
+	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR) 
+
 base: 
 	$(AM_V_at)make -C $(BASE_SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR)
 
-$(LIBRARY):
-	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR)
-	
 clean:
 	make -C $(SUB_PATH)  LIBOUTPUT=$(LIBOUTPUT) clean
 	make -C $(BASE_SUB_PATH) LIBOUTPUT=$(LIBOUTPUT) clean
@@ -126,8 +126,9 @@ clean:
 	find $(SRC_PATH) -maxdepth 1 -type f -regex ".*\.\(\(gcda\)\|\(gcno\)\)" -exec rm {} \;
 
 test:
+	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR) test
 	make -C ./test test
 
 bench:
+	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR) test
 	make -C ./judge bench
-

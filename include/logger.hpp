@@ -48,17 +48,19 @@ private:
 
     void _do_print_log(){
         auto pred = [this]{return !que.empty() || is_running == false;};
+        std::queue<std::string> log_que{};
         std::string str{};
         while(true){
             {
                 std::unique_lock<std::mutex> lk(mut);
                 cond.wait(lk , pred);
-
-                if (is_running == false) break;
-
-                str = std::move(que.front());
-                que.pop();
+                std::swap(log_que , que);
             }
+
+            if (is_running == false) break;
+
+            str = std::move(log_que.front());
+            log_que.pop();
             if(file) fprintf( file , "%s\n", str.c_str());
         }
     }
