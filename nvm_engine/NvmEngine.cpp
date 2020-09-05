@@ -21,12 +21,12 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 
     auto p = hash_index.find(key.to_string());
     if (p == hash_index.end()){
-        // Logger::instance().log("[Not Found]" + key.to_string());
+        Logger::instance().log("[Not Found]" + key.to_string());
         return NotFound;
     }
     else{
         *value = pool.value(p->second).to_string();
-        // Logger::instance().log("[GET]"+key.to_string()+" , "+ *value);
+        Logger::instance().log("[GET]"+key.to_string()+" , "+ *value);
         return Ok;
     }
 }
@@ -35,15 +35,15 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     std::lock_guard<std::mutex> lk(mut);
 
     auto k = key.to_string();
-    // Logger::instance().log("[SET]"+key.to_string() + " , " + value.to_string());
+    Logger::instance().log("[SET]"+key.to_string() + " , " + value.to_string());
     auto p = hash_index.find(k);
     uint32_t index{0};
     if (p == hash_index.end()){
         index = seq++;
+        hash_index[std::move(k)] = index;
     }else{
         index = p->second;
     }
-    hash_index[std::move(k)] = index;
     pool.set_value(index, value);
     return Ok;
 }
