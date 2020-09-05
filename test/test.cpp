@@ -28,7 +28,10 @@ bool assert_is_same(const char * r , const char * w){
 
 int main() {
     DB *db = nullptr;
-    DB::CreateOrOpen("./tmp", &db);
+    auto log = fopen("./log.txt" , "w");
+    if(log == nullptr) printf("log file open failed...");
+
+    DB::CreateOrOpen("./tmp", &db , log);
     Slice k;
     k.size() = 16;
     Slice v;

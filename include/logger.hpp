@@ -26,16 +26,19 @@ public:
     }
 
     void log(std::string str){
-        std::lock_guard<std::mutex> lk(mut);
         if(file){
-            que.push(std::string("[log]").append(std::move(str)));
+            {
+                std::lock_guard<std::mutex> lk(mut);
+                que.push(std::move(str));
+            }
             cond.notify_one();
         }
     }
 
 private:
-    explicit Logger():is_running(true) , t([this]{_do_print_log();}){
-    }
+    explicit Logger()
+    :is_running(true) , t([this]{_do_print_log();})
+    {}
 
     ~Logger(){
         is_running = false;
@@ -45,15 +48,18 @@ private:
 
     void _do_print_log(){
         auto pred = [this]{return !que.empty() || is_running == false;};
+        std::string str{};
         while(true){
-            std::unique_lock<std::mutex> lk(mut);
-            cond.wait(lk , pred);
+            {
+                std::unique_lock<std::mutex> lk(mut);
+                cond.wait(lk , pred);
 
-            if (is_running == false) break;
+                if (is_running == false) break;
 
-            auto & str = que.front();
+                str = std::move(que.front());
+                que.pop();
+            }
             if(file) fprintf( file , "%s\n", str.c_str());
-            que.pop();
         }
     }
 

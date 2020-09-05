@@ -21,8 +21,8 @@ using namespace std;
 typedef unsigned long long ull;
 
 const int NUM_THREADS = 16;
-int PER_SET = 480000;
-int PER_GET = 480000;
+int PER_SET = 480;
+int PER_GET = 480;
 const ull BASE = 199997;
 struct  timeval TIME_START, TIME_END;
 const int MAX_POOL_SIZE = 1e4;
@@ -60,7 +60,6 @@ void* set_pure(void * id) {
     Random rnd;
 
     int cnt = PER_SET;
-
     while(cnt -- ) {
 
         unsigned int* start = rnd.nextUnsignedInt();
@@ -180,7 +179,7 @@ int main(int argc, char *argv[]) {
     using ms_t = duration<float , std::milli>;
 
     printf("time set:%.2lf\ntime set/get:%.2lf\n", ms_t(t2 - t1).count(), ms_t(t3-t2).count());
-    printf("cnt_get = %d , cnt_set = %d\n" , cnt_get.load(),cnt_set.load());
+    // printf("cnt_get = %d , cnt_set = %d\n" , cnt_get.load(),cnt_set.load());
 
     return 0;
 }

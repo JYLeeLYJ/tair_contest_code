@@ -76,9 +76,9 @@ struct Value{
         return std::string(&data[0] , value_size);
     }
 
-    Value & operator = (const std::string & str) noexcept{
+    Value & operator = (const Slice & val) noexcept{
         memset(data , 0 , value_size);
-        memcpy(data , str.data() , std::min(str.length() , value_size));
+        memcpy(data , val.data() , std::min(val.size(), value_size));
         return * this;
     }
 };
@@ -92,26 +92,6 @@ public:
     explicit value_pool(const std::string & file ) :pmem(file){}
 
     //out of range will lead to undefined behavior
-    // std::string operator[] (size_t i) const noexcept{
-    //     return std::string(pmem.base() + i * VALUE_SIZE  , VALUE_SIZE);
-    // }
-
-    // bool write_value(size_t i , const std::string & str) noexcept{
-    //     if (i >= N)
-    //         return false;
-    //     else {
-    //         auto offset = i * VALUE_SIZE;
-    //         memset(pmem.base() + offset, 0 , VALUE_SIZE );
-    //         memcpy(pmem.base() + offset, str.data() , std::min(VALUE_SIZE,str.length()));
-    //         return true;
-    //     }
-    // }
-
-    // std::string get_value(size_t i) const noexcept{
-    //     return std::string(pmem.base() + i * VALUE_SIZE  , VALUE_SIZE);
-    // }
-
-    //out of range will lead to undefined behavior
     Value & operator[](size_t i) const noexcept{
         return value(i);        
     }
@@ -120,19 +100,15 @@ public:
         return data()[i];
     }
 
-    bool set_value(size_t i , const std::string & str) noexcept{
-        if (i > N)
-            return false;
-        else{
-            data()[i] = str;
-            return true;
-        }
+    bool set_value(size_t i , const Slice & str) noexcept{
+        data()[i] = str;
+        return true;
     }
 
 private:
     memory_pool<N * VALUE_SIZE> pmem;
 
-    Value * data() const noexcept{
+    inline Value * data() const noexcept{
         return reinterpret_cast<Value*>(pmem.base());
     }
 };

@@ -3,7 +3,7 @@
 
 #include <unordered_map>
 #include <mutex>
-#include <bitset>
+#include <atomic>
 
 #include "include/db.hpp"
 #include "value_pool.hpp"
@@ -20,7 +20,10 @@ public:
 private:
     std::mutex mut;
     value_pool<SIZE> pool;
-    std::bitset<SIZE> bits{};
+
+    // std::atomic<uint32_t> seq;
+    uint32_t seq;
+    std::unordered_map<std::string , uint32_t> hash_index;
 };
 
 #endif

@@ -1,3 +1,5 @@
+.PHONY: test clean
+
 clean:
 	rm -rf ./test
 

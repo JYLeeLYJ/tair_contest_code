@@ -18,34 +18,38 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
     std::lock_guard<std::mutex> lk(mut);
-    auto index = std::hash<std::string>{}(key.to_string()) % SIZE;
 
-    if (bits.test(index) == false){
-        Logger::instance().log("[GET]" + key.to_string() + "[ ............. Not Found]");
+    auto p = hash_index.find(key.to_string());
+    if (p == hash_index.end()){
+        // Logger::instance().log("[Not Found]" + key.to_string());
         return NotFound;
     }
     else{
-        *value = pool.value(index).to_string();
-        Logger::instance().log(key.to_string()+" , "+ *value);
+        *value = pool.value(p->second).to_string();
+        // Logger::instance().log("[GET]"+key.to_string()+" , "+ *value);
         return Ok;
-    } 
+    }
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
     std::lock_guard<std::mutex> lk(mut);
-    auto index = std::hash<std::string>{}(key.to_string()) % SIZE;
 
-    Logger::instance().log("[SET]"+key.to_string() + " , " + value.to_string());
-
-    if(!pool.set_value(index , value.to_string()))
-        return OutOfMemory;
-    
-    bits.set(index);
+    auto k = key.to_string();
+    // Logger::instance().log("[SET]"+key.to_string() + " , " + value.to_string());
+    auto p = hash_index.find(k);
+    uint32_t index{0};
+    if (p == hash_index.end()){
+        index = seq++;
+    }else{
+        index = p->second;
+    }
+    hash_index[std::move(k)] = index;
+    pool.set_value(index, value);
     return Ok;
 }
 
 NvmEngine::NvmEngine(const std::string & file_name) 
-:pool(file_name){
+:pool(file_name) ,seq(0) ,hash_index(SIZE) {
 
 }
 

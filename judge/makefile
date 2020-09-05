@@ -4,4 +4,4 @@ clean:
 	rm -rf ./performance.log
 
 bench:
-	bash ./judge.sh
+	bash ./judge.sh 480 480
