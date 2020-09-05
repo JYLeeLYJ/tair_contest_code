@@ -6,6 +6,9 @@
 
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
     Logger::set_file(log_file);
+    Logger::instance().log("start...");
+
+    fprintf("[Start]fprintf");
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
@@ -50,7 +53,7 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
 NvmEngine::NvmEngine(const std::string & file_name) 
 :pool(file_name) ,seq(0) ,hash_index(SIZE) {
-
+    Logger::instance().log("init");
 }
 
 NvmEngine::~NvmEngine() {}
