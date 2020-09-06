@@ -35,7 +35,7 @@ public:
         }
     }
 
-    void sysn_log(const std::string & str){
+    void sync_log(const std::string & str){
 
         static auto beg = std::chrono::high_resolution_clock::now();
 
