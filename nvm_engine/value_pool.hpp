@@ -9,6 +9,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "include/utils.hpp"
 #include "include/logger.hpp"
@@ -29,6 +30,12 @@ public:
             exit(1);
         }
         _base = (char*)mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
+
+        //test file length
+        struct stat statbuf;
+        if (stat(file.data() , &statbuf) == 0){
+            Logger::instance().sync_log("File length = "+ std::to_string(statbuf.st_size));
+        }
         #endif
 
         if(_base == MAP_FAILED || _base == NULL) {
@@ -37,8 +44,7 @@ public:
             exit(1);
         }
 
-        Logger::instance().sync_log("mmap succeed.");
-        Logger::instance().sync_log(std::to_string(uint64_t(_base)));
+        Logger::instance().sync_log("mmap base addr = " + std::to_string(uint64_t(_base)));
     }
 
     ~memory_pool() noexcept{
@@ -62,12 +68,12 @@ public:
         return N;
     }
 
-    char * base() const{
+    void * base() const{
         return _base;
     }
 
 protected:
-    char * _base{nullptr};
+    void * _base{nullptr};
     int _fd{-1};
 };
 
@@ -94,7 +100,8 @@ public:
     static constexpr size_t VALUE_SIZE = Value::value_size; 
     static constexpr size_t KEY_SIZE = 16;
 public:
-    explicit value_pool(const std::string & file ) :pmem(file){}
+    explicit value_pool(const std::string & file ) :pmem(file){
+    }
 
     //out of range will lead to undefined behavior
     Value & operator[](size_t i) const noexcept{
@@ -111,10 +118,10 @@ public:
     }
 
 private:
-    memory_pool<N * VALUE_SIZE> pmem;
+    memory_pool< N * VALUE_SIZE> pmem;
 
     inline Value * data() const noexcept{
-        return reinterpret_cast<Value*>(pmem.base());
+        return static_cast<Value*>(pmem.base());
     }
 };
 

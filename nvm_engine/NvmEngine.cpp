@@ -1,11 +1,19 @@
 #include<functional>
+#include <signal.h>
+
 #include "NvmEngine.hpp"
 #include "include/utils.hpp"
 #include "include/logger.hpp"
 
+void catch_bus_error(int sig){
+    Logger::instance().sync_log("SIGBUS");
+    exit(1);
+}
+
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
     Logger::set_file(log_file);
     Logger::instance().sync_log("start");
+    signal(SIGBUS  , catch_bus_error);
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
@@ -18,13 +26,14 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
     static int cnt = 0;
-    if(cnt++% 1000 == 0)
+    if(cnt++% 1000000 == 0)
         Logger::instance().sync_log("number of get = " + std::to_string(cnt));
 
     //hack
     if (seq > 100000){
         return Ok;
     }
+
     {
         std::lock_guard<std::mutex> lk(mut);
 
@@ -44,8 +53,9 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     static int cnt = 0;
-    if(cnt++ % 1000 == 0)
-        Logger::instance().sync_log("number of set = " + std::to_string(cnt));
+    // if(cnt++ % 1000 == 0)
+    ++cnt;
+    Logger::instance().sync_log("number of set = " + std::to_string(cnt));
 
     //hack
     if (seq > 100000){

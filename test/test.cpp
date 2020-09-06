@@ -1,4 +1,5 @@
 #include <include/db.hpp>
+#include <signal.h>
 
 char *random_str(unsigned int size) {
     char *str = (char *)malloc(size + 1);
@@ -26,7 +27,10 @@ bool assert_is_same(const char * r , const char * w){
     return strcmp(r , w) == 0;
 }
 
+int g_cnt {0};
+
 int main() {
+
     DB *db = nullptr;
     auto log = fopen("./log.txt" , "w");
     if(log == nullptr) printf("log file open failed...");
@@ -51,8 +55,10 @@ int main() {
 
         free(k.data());
         free(v.data());
+
+        ++g_cnt;
     }
 
-    printf("[finish]\n");
+    printf("[finish] , cnt = %d\n" , g_cnt);
     return 0;
 }
