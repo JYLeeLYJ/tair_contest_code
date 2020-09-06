@@ -5,7 +5,7 @@
 
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
     Logger::set_file(log_file);
-    Logger::instance().log("start");
+    Logger::instance().sync_log("start");
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
