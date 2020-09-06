@@ -38,6 +38,7 @@ public:
         }
 
         Logger::instance().sync_log("mmap succeed.");
+        Logger::instance().sync_log(std::to_string(uint64_t(_base)));
     }
 
     ~memory_pool() noexcept{

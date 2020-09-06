@@ -43,6 +43,7 @@ public:
             auto t = std::chrono::high_resolution_clock::now();
             using min_t = std::chrono::duration<float , std::ratio<60>>;
             fprintf(file , "%.2f min : %s\n" , static_cast<min_t>(t - beg).count() ,str.data());
+            fflush(file);
         }
     }
 
