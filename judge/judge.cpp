@@ -179,7 +179,6 @@ int main(int argc, char *argv[]) {
     using ms_t = duration<float , std::milli>;
 
     printf("time set:%.2lf\ntime set/get:%.2lf\n", ms_t(t2 - t1).count(), ms_t(t3-t2).count());
-    // printf("cnt_get = %d , cnt_set = %d\n" , cnt_get.load(),cnt_set.load());
 
     return 0;
 }

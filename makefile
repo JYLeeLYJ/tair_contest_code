@@ -130,5 +130,6 @@ test:
 	make -C ./test test
 
 bench:
+	make base
 	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR) test
 	make -C ./judge bench

@@ -7,6 +7,7 @@ get_per_thread=$2
 
 rm -rf ./judge_base
 rm -rf ./judge
+rm -rf ./DB
 
 g++ -pthread -o judge judge.cpp random.cpp -L $LIB_PATH -l engine -I $INCLUDE_DIR -g -mavx2 -std=c++11
 
