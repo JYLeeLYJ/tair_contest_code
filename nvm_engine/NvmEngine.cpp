@@ -45,6 +45,11 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     }
 
     {
+
+        if(unlikely( local_cnt % 1000 == 0) ){
+            Logger::instance().sync_log("[GET]" + std::to_string(local_cnt));
+        }
+        
         std::lock_guard<std::mutex> lk(mut);
 
         auto p = hash_index.find(key.to_string());
@@ -65,7 +70,7 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     static std::atomic<int> cnt{0};
     int local_cnt = cnt++;
 
-    if(unlikely(local_cnt % 1000000 == 0)){
+    if(unlikely(local_cnt % 10000 == 0)){
         Logger::instance().sync_log("number of set = " + std::to_string(local_cnt));
     }
 
@@ -75,6 +80,10 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     }
 
     {
+        if(unlikely( local_cnt > 70000 && local_cnt % 1000 == 0) ){
+            Logger::instance().sync_log("[GET]" + std::to_string(local_cnt));
+        }
+
         std::lock_guard<std::mutex> lk(mut);
 
         auto k = key.to_string();
