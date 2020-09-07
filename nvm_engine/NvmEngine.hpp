@@ -12,7 +12,7 @@ class NvmEngine : DB {
     #ifdef LOCAL_TEST
     static constexpr size_t SIZE = 64 * 1024 ;   //64M
     #else
-    static constexpr size_t SIZE = 56 * 16 * 1024 * 1024; //(48 + 8 ) M * 16 threads
+    static constexpr size_t SIZE = 56 * 1024 * 1024; //(48 + 8 ) M * 16 threads
     #endif
 public:
     static Status CreateOrOpen(const std::string& name, DB** dbptr);

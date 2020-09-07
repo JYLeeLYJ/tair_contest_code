@@ -53,8 +53,9 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     static std::atomic<int> cnt{0};
-    // if(cnt++% 1000000 == 0)
-    Logger::instance().sync_log("number of set = " + std::to_string(cnt++));
+    if(cnt++% 100000 == 0){
+        Logger::instance().sync_log("number of set = " + std::to_string(cnt));
+    }
 
     //hack
     if (seq > 100000){

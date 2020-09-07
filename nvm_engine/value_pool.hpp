@@ -14,31 +14,27 @@
 #include "include/utils.hpp"
 #include "include/logger.hpp"
 
+off_t file_len(const std::string & file){
+    struct stat file_stat{};
+    if(stat(file.data() , &file_stat) == 0)
+        return file_stat.st_size;
+    else 
+        return 0;
+}
+
 template<size_t N >
 class memory_pool:disable_copy{
 public:
-    explicit memory_pool(const std::string file){
+    explicit memory_pool(const std::string & file){
 
         Logger::instance().sync_log("file = "+file);
         
-        //fopen
-        _fp = fopen(file.data() , "wb");
-        if(_fp == NULL){
-            Logger::instance().sync_log("failed to fopen");
-            perror("failed to fopen");
-            exit(1);
-        }
+        // if (file_len(file) == 0)
+        //     _base = init_memory();
+        // else
+        //     _base = init_mmap_file(file);
+        _base = init_mmap_file(file);
 
-        //open
-        _fd = open(file.data(), O_RDWR);
-        if (_fd < 0) {
-            Logger::instance().sync_log("failed to open the file");
-            perror("failed to open the file");
-            exit(1);
-        }
-        
-        //mmap
-        _base = (char*)mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
 
         if(_base == MAP_FAILED || _base == NULL) {
             Logger::instance().sync_log("failed to mmap.");
@@ -60,21 +56,48 @@ public:
         mem._base = nullptr;
     }
 
-    template<int n>
-    int foo(){
-        return N;
+    void * init_memory(){
+        Logger::instance().sync_log("file len = 0.");
+        return mmap(NULL , N , PROT_READ|PROT_WRITE , MAP_ANON | MAP_SHARED , 0 ,0);
     }
 
+    void * init_mmap_file(const std::string & file){
+
+        Logger::instance().sync_log("file len = " + std::to_string((size_t)file_len(file)));
+                //fopen
+        _fp = fopen(file.data() , "wb");
+        if(_fp == NULL){
+            Logger::instance().sync_log("failed to fopen");
+            perror("failed to fopen");
+            exit(1);
+        }
+
+        //open
+        _fd = open(file.data(), O_RDWR);
+        if (_fd < 0) {
+            Logger::instance().sync_log("failed to open the file");
+            perror("failed to open the file");
+            exit(1);
+        }
+        
+        //mmap
+        return mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
+    }
+
+
     void append_memory(size_t sz){
-        static char data[1024]{};
+        static char data[4096]{};
 
         if(_endoff.fetch_add(sz) + sz > N){
             Logger::instance().sync_log("Out of presist memory N = " + std::to_string(N) + " , _endoff = " + std::to_string(_endoff) );
             perror("Out of presist memory");
             exit(1);
         }
-        fwrite(data , sizeof(char) , sz , _fp);
-        fflush(_fp);
+        auto ssz = write(_fd , data , sz);
+        UNUSED(ssz);
+        lseek(_fd ,0 ,SEEK_END);
+        // fwrite(data , sizeof(char) , sz , _fp);
+        // fflush(_fp);
     }
     
     memory_pool & operator= (memory_pool && mem) noexcept{
@@ -153,12 +176,10 @@ public:
 private:
 
     void pre_allocated_trunks(){
-        constexpr int n_trunks = MEM_SIZE / 1024 ;
+        constexpr int n_trunks = MEM_SIZE / 4096 ;
         Logger::instance().sync_log("preallocated : n_trunks = " + std::to_string(n_trunks));
         for ( int i = 0 ; i < n_trunks ; ++ i){
-            if(i % 1024 ==0 )
-                Logger::instance().sync_log("allocated trunks:" + std::to_string(i));
-            pmem.append_memory(1024);
+            pmem.append_memory(4096);
         }
     }
 
