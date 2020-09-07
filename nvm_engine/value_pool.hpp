@@ -66,6 +66,7 @@ public:
             exit(1);
         }
 
+        //pre allocate
         if(posix_fallocate(_fd , 0 , N) < 0){
             Logger::instance().sync_log("fallocate space failed." + std::string(strerror(errno)) );
             perror("fallocate failed");
@@ -115,7 +116,7 @@ struct Value{
     }
 };
 
-template<size_t N , bool pre_allocate = false>
+template<size_t N>
 class value_pool:disable_copy{
 public:
     static constexpr size_t VALUE_SIZE = Value::value_size; 

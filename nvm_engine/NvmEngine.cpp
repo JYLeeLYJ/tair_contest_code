@@ -80,7 +80,7 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
         auto k = key.to_string();
         auto p = hash_index.find(k);
         uint32_t index{0};
-        if (p == hash_index.end()){
+        if (likely(p == hash_index.end())){
             index = pool.append_new_value(value);
             hash_index[std::move(k)] = index;
         }else{
@@ -92,8 +92,8 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 }
 
 NvmEngine::NvmEngine(const std::string & file_name)
-:pool(file_name) ,hash_index(SIZE) {
-    Logger::instance().sync_log("NvmEngine init");
+:pool(file_name) ,hash_index(HASH_BUCKET_SIZE) {
+    Logger::instance().sync_log("NvmEngine init , hash bucket loal factor = " + std::to_string(hash_index.max_load_factor()));
 }
 
 NvmEngine::~NvmEngine() {}
