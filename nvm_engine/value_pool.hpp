@@ -47,7 +47,6 @@ public:
         }
 
         Logger::instance().sync_log("mmap base addr = " + std::to_string(uint64_t(_base)));
-        Logger::instance().sync_log("_fp = " + std::to_string(uint64_t(_fp)));
     }
 
     ~memory_pool() noexcept{
@@ -93,7 +92,7 @@ public:
 
 protected:
     void *  _base{nullptr};
-    std::atomic_uint32_t  _endoff{0};
+    std::atomic<size_t>  _endoff{0};
     int     _fd{-1};
     FILE *  _fp{nullptr};
 };
@@ -155,7 +154,10 @@ private:
 
     void pre_allocated_trunks(){
         constexpr int n_trunks = MEM_SIZE / 1024 ;
+        Logger::instance().sync_log("preallocated : n_trunks = " + std::to_string(n_trunks));
         for ( int i = 0 ; i < n_trunks ; ++ i){
+            if(i % 1024 ==0 )
+                Logger::instance().sync_log("allocated trunks:" + std::to_string(i));
             pmem.append_memory(1024);
         }
     }

@@ -25,9 +25,9 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 }
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
-    // static int cnt = 0;
-    // if(cnt++% 1000000 == 0)
-    //     Logger::instance().sync_log("number of get = " + std::to_string(cnt));
+    static int cnt = 0;
+    if(cnt++% 1000000 == 0)
+        Logger::instance().sync_log("number of get = " + std::to_string(cnt));
 
     //hack
     if (seq > 100000){
@@ -51,6 +51,10 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
+
+    static std::atomic<int> cnt{0};
+    // if(cnt++% 1000000 == 0)
+    Logger::instance().sync_log("number of set = " + std::to_string(cnt++));
 
     //hack
     if (seq > 100000){
