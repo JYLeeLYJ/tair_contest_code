@@ -25,9 +25,9 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 }
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
-    static int cnt = 0;
-    if(cnt++% 1000000 == 0)
-        Logger::instance().sync_log("number of get = " + std::to_string(cnt));
+    // static int cnt = 0;
+    // if(cnt++% 1000000 == 0)
+    //     Logger::instance().sync_log("number of get = " + std::to_string(cnt));
 
     //hack
     if (seq > 100000){
@@ -52,11 +52,6 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
-    static int cnt = 0;
-    // if(cnt++ % 1000 == 0)
-    ++cnt;
-    Logger::instance().sync_log("number of set = " + std::to_string(cnt));
-
     //hack
     if (seq > 100000){
         return Ok;
@@ -69,7 +64,8 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
         auto p = hash_index.find(k);
         uint32_t index{0};
         if (p == hash_index.end()){
-            index = seq++;
+            ++seq;
+            index = pool.append_new_value(value);
             hash_index[std::move(k)] = index;
         }else{
             index = p->second;
