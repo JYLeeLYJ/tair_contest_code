@@ -14,7 +14,7 @@
 #include "include/utils.hpp"
 #include "include/logger.hpp"
 
-off_t file_len(const std::string & file){
+inline off_t file_len(const std::string & file){
     struct stat file_stat{};
     if(stat(file.data() , &file_stat) == 0)
         return file_stat.st_size;
@@ -29,12 +29,7 @@ public:
 
         Logger::instance().sync_log("file = "+file);
         
-        // if (file_len(file) == 0)
-        //     _base = init_memory();
-        // else
-        //     _base = init_mmap_file(file);
         _base = init_mmap_file(file);
-
 
         if(_base == MAP_FAILED || _base == NULL) {
             Logger::instance().sync_log("failed to mmap.");
@@ -48,7 +43,6 @@ public:
     ~memory_pool() noexcept{
         if(!_base)munmap(_base , N);
         if(!(_fd < 0)) close(_fd);
-        if(!_fp) fclose(_fp);
     }
 
     memory_pool(memory_pool && mem) noexcept
@@ -56,48 +50,32 @@ public:
         mem._base = nullptr;
     }
 
-    void * init_memory(){
-        Logger::instance().sync_log("file len = 0.");
-        return mmap(NULL , N , PROT_READ|PROT_WRITE , MAP_ANON | MAP_SHARED , 0 ,0);
-    }
+    // void * init_memory(){
+    //     return mmap(NULL , N , PROT_READ|PROT_WRITE , MAP_ANON | MAP_SHARED , 0 ,0);
+    // }
 
     void * init_mmap_file(const std::string & file){
 
         Logger::instance().sync_log("file len = " + std::to_string((size_t)file_len(file)));
-                //fopen
-        _fp = fopen(file.data() , "wb");
-        if(_fp == NULL){
-            Logger::instance().sync_log("failed to fopen");
-            perror("failed to fopen");
-            exit(1);
-        }
-
+        
         //open
-        _fd = open(file.data(), O_RDWR);
+        _fd = open(file.data(), O_RDWR | O_CREAT ,S_IRWXU);
         if (_fd < 0) {
             Logger::instance().sync_log("failed to open the file");
             perror("failed to open the file");
             exit(1);
         }
-        
-        //mmap
-        return mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
-    }
 
-
-    void append_memory(size_t sz){
-        static char data[4096]{};
-
-        if(_endoff.fetch_add(sz) + sz > N){
-            Logger::instance().sync_log("Out of presist memory N = " + std::to_string(N) + " , _endoff = " + std::to_string(_endoff) );
-            perror("Out of presist memory");
+        if(posix_fallocate(_fd , 0 , N) < 0){
+            Logger::instance().sync_log("fallocate space failed." + std::string(strerror(errno)) );
+            perror("fallocate failed");
             exit(1);
         }
-        auto ssz = write(_fd , data , sz);
-        UNUSED(ssz);
-        lseek(_fd ,0 ,SEEK_END);
-        // fwrite(data , sizeof(char) , sz , _fp);
-        // fflush(_fp);
+
+        _endoff = N;
+
+        //mmap
+        return mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
     }
     
     memory_pool & operator= (memory_pool && mem) noexcept{
@@ -115,9 +93,9 @@ public:
 
 protected:
     void *  _base{nullptr};
-    std::atomic<size_t>  _endoff{0};
     int     _fd{-1};
-    FILE *  _fp{nullptr};
+
+    std::atomic<size_t>  _endoff{0};
 };
 
 struct Value{
@@ -146,8 +124,7 @@ public:
 public:
     explicit value_pool(const std::string & file ) 
     :pmem(file){
-        if (pre_allocate)
-            pre_allocated_trunks();
+        Logger::instance().sync_log("value_pool init.");
     }
 
     //out of range will lead to undefined behavior
@@ -165,23 +142,12 @@ public:
     }
 
     size_t append_new_value(const Slice & str ) {
-        if(!pre_allocate)
-            pmem.append_memory(VALUE_SIZE);
-        
         auto index = seq ++;
         set_value(index , str);
         return index;
     }
 
 private:
-
-    void pre_allocated_trunks(){
-        constexpr int n_trunks = MEM_SIZE / 4096 ;
-        Logger::instance().sync_log("preallocated : n_trunks = " + std::to_string(n_trunks));
-        for ( int i = 0 ; i < n_trunks ; ++ i){
-            pmem.append_memory(4096);
-        }
-    }
 
     Value * data() const noexcept{
         return static_cast<Value*>(pmem.base());

@@ -47,14 +47,18 @@ public:
         }
     }
 
+    void end_log(){
+        is_running = false;
+        cond.notify_one();
+    }
+
 private:
     explicit Logger()
     :is_running(true) , t([this]{_do_print_log();})
     {}
 
     ~Logger(){
-        is_running = false;
-        cond.notify_one();
+        end_log();
         if(t.joinable()) t.join();
     }
 
@@ -69,13 +73,14 @@ private:
                 std::swap(log_que , que);
             }
 
-            if (is_running == false) break;
-
             while(!log_que.empty()){
                 str = std::move(log_que.front());
                 log_que.pop();
                 if(file) fprintf( file , "%s\n", str.c_str());
             }
+
+            if (is_running == false) break;
+
         }
     }
 

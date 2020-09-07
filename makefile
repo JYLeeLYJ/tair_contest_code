@@ -116,7 +116,7 @@ base:
 
 clean:
 	make -C $(SUB_PATH)  LIBOUTPUT=$(LIBOUTPUT) clean
-	make -C $(BASE_SUB_PATH) LIBOUTPUT=$(LIBOUTPUT) clean
+	# make -C $(BASE_SUB_PATH) LIBOUTPUT=$(LIBOUTPUT) clean
 	make -C ./judge clean
 	make -C ./test clean
 	rm -f $(LIBRARY)
