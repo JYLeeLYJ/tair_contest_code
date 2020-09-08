@@ -40,7 +40,7 @@ public:
         Logger::instance().sync_log("mmap base addr = " + std::to_string(uint64_t(_base)));
     }
 
-    ~memory_pool() noexcept{
+    ~memory_pool() {
         if(!_base)munmap(_base , N);
         if(!(_fd < 0)) close(_fd);
     }
@@ -84,11 +84,11 @@ public:
         mem._base = nullptr;
     }
 
-    constexpr size_t length() const{
+    constexpr size_t length() const noexcept{
         return N;
     }
 
-    void * base() const{
+    void * base() const noexcept{
         return _base;
     }
 
@@ -142,7 +142,7 @@ public:
         return true;
     }
 
-    size_t append_new_value(const Slice & str ) {
+    size_t append_new_value(const Slice & str ) noexcept {
         auto index = seq ++;
         set_value(index , str);
         return index;
