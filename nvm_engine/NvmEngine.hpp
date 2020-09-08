@@ -22,12 +22,16 @@ public:
 
     explicit NvmEngine(const std::string & file_name);
     ~NvmEngine() override;
+
+    std::size_t size() const noexcept {
+        return hash_index.size();
+    }
+
 private:
-    // std::mutex mut;
+    std::mutex mut;
     value_pool<VALUE_SCALE> pool;
 
     std::unordered_map<std::string , uint32_t> hash_index;
-    std::array<std::atomic_flag , HASH_BUCKET_SIZE> flags;
 };
 
 #endif

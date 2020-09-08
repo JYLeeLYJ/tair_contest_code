@@ -50,10 +50,6 @@ public:
         mem._base = nullptr;
     }
 
-    // void * init_memory(){
-    //     return mmap(NULL , N , PROT_READ|PROT_WRITE , MAP_ANON | MAP_SHARED , 0 ,0);
-    // }
-
     void * init_mmap_file(const std::string & file){
 
         Logger::instance().sync_log("file len = " + std::to_string((size_t)file_len(file)));
