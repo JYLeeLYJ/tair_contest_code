@@ -10,7 +10,7 @@
 
 class NvmEngine : DB {
     #ifdef LOCAL_TEST
-    static constexpr size_t VALUE_SCALE = 64 * 1024 ;   //64M
+    static constexpr size_t VALUE_SCALE = 64 * 1024 ;   //64K
     #else
     static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; //(48 + 1 ) M * 16 threads
     #endif

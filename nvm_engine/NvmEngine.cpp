@@ -43,11 +43,11 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
         Logger::instance().sync_log("number of get = " + std::to_string(local_cnt));
 
     //hack
-    if (local_cnt > 1000000){
-        return Ok;
+    if (local_cnt > 10000000){
+        return NotFound;
     }
 
-    if(unlikely( local_cnt % 10000 == 0) ){
+    if(unlikely( local_cnt % 10 == 0) ){
         Logger::instance().sync_log("[GET]" + std::to_string(local_cnt));
     }
 
@@ -57,13 +57,14 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     auto i = std::hash<std::string>{}(k) % flags.size();
     auto & cur_flag = flags[i];
 
+    SpinLock lk(cur_flag);
+
     auto p = hash_index.find(k);
 
     if (p == hash_index.end()){
         return NotFound;
     }
     else{
-        SpinLock lk(cur_flag);
         *value = pool.value(p->second).to_string();
         return Ok;
     }
