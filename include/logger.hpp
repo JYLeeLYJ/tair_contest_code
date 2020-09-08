@@ -13,6 +13,8 @@
 
 class Logger:disable_copy{
 
+    using min_t = std::chrono::duration<float , std::ratio<60>>;
+
 public:
     static Logger & instance(){
         static Logger log{};
@@ -27,35 +29,38 @@ public:
 
     void log(std::string str){
         if(file){
+            auto t = std::chrono::high_resolution_clock::now();
+            auto log = std::to_string(static_cast<min_t>(t - _beg).count()).append(" min : ").append(std::move(str));
             {
                 std::lock_guard<std::mutex> lk(mut);
-                que.push(std::move(str));
+                que.push(std::move(log));
             }
             cond.notify_one();
         }
     }
 
     void sync_log(const std::string & str){
-
-        static auto beg = std::chrono::high_resolution_clock::now();
-
         if (file){
             auto t = std::chrono::high_resolution_clock::now();
-            using min_t = std::chrono::duration<float , std::ratio<60>>;
-            fprintf(file , "%.2f min : %s\n" , static_cast<min_t>(t - beg).count() ,str.data());
+            fprintf(file , "%.2f min : %s\n" , static_cast<min_t>(t - _beg).count() ,str.data());
             fflush(file);
         }
     }
 
     void end_log(){
-        is_running = false;
-        cond.notify_one();
+        if(is_running){
+            is_running = false;
+            cond.notify_one();
+        }
     }
 
 private:
     explicit Logger()
-    :is_running(true) , t([this]{_do_print_log();})
-    {}
+    :is_running(true) , 
+    _beg (std::chrono::high_resolution_clock::now()) ,
+    t([this]{_do_print_log();}){
+    
+    }
 
     ~Logger(){
         end_log();
@@ -66,7 +71,7 @@ private:
         auto pred = [this]{return !que.empty() || is_running == false;};
         std::queue<std::string> log_que{};
         std::string str{};
-        while(true){
+        while(is_running){
             {
                 std::unique_lock<std::mutex> lk(mut);
                 cond.wait(lk , pred);
@@ -79,7 +84,7 @@ private:
                 if(file) fprintf( file , "%s\n", str.c_str());
             }
 
-            if (is_running == false) break;
+            // if (is_running == false) break;
 
         }
     }
@@ -88,6 +93,8 @@ private:
     std::mutex mut;
     std::condition_variable cond;
     bool is_running;
+
+    std::chrono::time_point<std::chrono::high_resolution_clock> _beg;
 
     std::queue<std::string> que{};
     std::thread t;

@@ -31,6 +31,7 @@ private:
     std::mutex mut;
     value_pool<VALUE_SCALE> pool;
 
+    std::atomic<std::size_t> seq{0};
     std::unordered_map<std::string , uint32_t> hash_index;
 };
 
