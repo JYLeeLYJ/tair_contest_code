@@ -41,12 +41,16 @@ ifeq ($(MAKECMDGOALS),test)
   OPT += -DLOCAL_TEST
 endif
 
+# for fmt header-only usage
+OPT += -DFMT_HEADER_ONLY
+
 # ----------------------------------------------
 SRC_PATH = $(CURDIR)
 
 # ----------------Dependences-------------------
 
 INCLUDE_PATH = -I./ 
+INCLUDE_PATH += -I../external
 
 # ---------------End Dependences----------------
 

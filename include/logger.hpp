@@ -11,6 +11,9 @@
 
 #include "utils.hpp"
 
+#include "fmt/format.h"
+#include "fmt/printf.h"
+
 class Logger:disable_copy{
 
     using min_t = std::chrono::duration<float , std::ratio<60>>;
@@ -30,7 +33,7 @@ public:
     void log(std::string str){
         if(file){
             auto t = std::chrono::high_resolution_clock::now();
-            auto log = std::to_string(static_cast<min_t>(t - _beg).count()).append(" min : ").append(std::move(str));
+            auto log = fmt::format("{:.2f} min : {}" , static_cast<min_t>(t - _beg).count() , std::move(str));
             {
                 std::lock_guard<std::mutex> lk(mut);
                 que.push(std::move(log));
@@ -42,7 +45,7 @@ public:
     void sync_log(const std::string & str){
         if (file){
             auto t = std::chrono::high_resolution_clock::now();
-            fprintf(file , "%.2f min : %s\n" , static_cast<min_t>(t - _beg).count() ,str.data());
+            fmt::print(file , "{:.2f} min : {}\n" , static_cast<min_t>(t - _beg).count() , str);
             fflush(file);
         }
     }
@@ -81,11 +84,9 @@ private:
             while(!log_que.empty()){
                 str = std::move(log_que.front());
                 log_que.pop();
-                if(file) fprintf( file , "%s\n", str.c_str());
+                if(file)
+                    fmt::print(file , "{}\n" , std::move(str));
             }
-
-            // if (is_running == false) break;
-
         }
     }
 
