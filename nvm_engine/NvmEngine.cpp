@@ -50,7 +50,7 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     uint32_t index{0};
 
     {
-        std::lock_guard<std::mutex> lk(mut);
+        // std::lock_guard<std::mutex> lk(mut);
 
         auto p = hash_index.find(key.to_string());
         if (p == hash_index.end()){
