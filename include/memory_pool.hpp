@@ -1,3 +1,6 @@
+#ifndef MEMORY_POOL_INCLUDE_H
+#define MEMORY_POOL_INCLUDE_H
+
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -93,3 +96,4 @@ protected:
     std::atomic<size_t>  _endoff{0};
     int     _fd{-1};
 };
+#endif

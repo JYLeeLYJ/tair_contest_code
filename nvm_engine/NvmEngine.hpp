@@ -6,15 +6,18 @@
 #include <atomic>
 
 #include "include/db.hpp"
-#include "value_pool.hpp"
+// #include "value_pool.hpp"
+#include "include/index_hasher.hpp"
+#include "include/record_pool.hpp"
 
 class NvmEngine : DB {
     #ifdef LOCAL_TEST
     static constexpr size_t VALUE_SCALE = 64 * 1024 ;   //64K
+    static constexpr size_t HASH_BUCKET_SIZE = 8 * 1024;
     #else
-    static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; //(48 + 1 ) M * 16 threads
+    static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; // 48M * 16 threads
+    static constexpr size_t HASH_BUCKET_SIZE = VALUE_SCALE / 8;
     #endif
-    static constexpr size_t HASH_BUCKET_SIZE = 48 * 1024 * 1024;
 public:
     static Status CreateOrOpen(const std::string& name, DB** dbptr);
     Status Get(const Slice& key, std::string* value) override;
@@ -23,16 +26,18 @@ public:
     explicit NvmEngine(const std::string & file_name);
     ~NvmEngine() override;
 
-    std::size_t size() const noexcept {
-        return hash_index.size();
-    }
+private:
+
+    Record * find(const std::string & key ) ;
+
+    bool append_new_value(const Slice & key , const Slice & value);
 
 private:
-    std::mutex mut;
-    value_pool<VALUE_SCALE> pool;
+
+    Hash<HASH_BUCKET_SIZE , 8> hash_index{};
+    record_pool<VALUE_SCALE+10> pool;
 
     std::atomic<std::size_t> seq{0};
-    std::unordered_map<std::string , uint32_t> hash_index;
 };
 
 #endif
