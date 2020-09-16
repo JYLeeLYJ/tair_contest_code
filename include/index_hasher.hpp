@@ -13,8 +13,11 @@ template<std::size_t bucket_size , std::size_t bucket_length>
 class Hash{
 public :
     struct bucket_head : disable_copy{
-        std::atomic<uint8_t> value_cnt{0};
-        uint8_t recent_vis_index{std::numeric_limits<uint8_t>::max()};
+        std::atomic<uint8_t> value_cnt;
+        uint8_t recent_vis_index;
+
+        constexpr bucket_head() noexcept
+        :value_cnt(0) , recent_vis_index(std::numeric_limits<uint8_t>::max()){}
     };
 
     struct bucket{
