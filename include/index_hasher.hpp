@@ -12,7 +12,7 @@
 template<std::size_t bucket_size , std::size_t bucket_length>
 class Hash{
 public :
-    struct bucket_head{
+    struct bucket_head : disable_copy{
         std::atomic<uint8_t> value_cnt{0};
         uint8_t recent_vis_index{std::numeric_limits<uint8_t>::max()};
     };
@@ -24,6 +24,9 @@ public :
 
     static constexpr std::size_t bk_size = bucket_size ;
     static constexpr std::size_t bk_len = bucket_length;
+
+    static_assert(sizeof(bucket_head) == 2 , "error head size");
+    static_assert(sizeof(bucket) == 32 , "error bucket len");
 
 public:
     explicit Hash() noexcept
@@ -39,7 +42,7 @@ public:
         bucket & bk = _buckets[i_bucket];
         uint8_t cnt = head.value_cnt;
         while(std::atomic_compare_exchange_weak_explicit(
-            &head.value_cnt , &cnt , cnt + 1 ,
+            &head.value_cnt , &cnt , static_cast<uint8_t>(cnt + 1) ,
             std::memory_order_release , std::memory_order_release
         )){
             if (cnt >= bucket_length)

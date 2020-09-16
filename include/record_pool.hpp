@@ -35,7 +35,7 @@ struct Record{
     }
 };
 
-static_assert(sizeof(Record) == 96);
+static_assert(sizeof(Record) == 96 , "error record size");
 
 template<std::size_t N>
 class record_pool{
