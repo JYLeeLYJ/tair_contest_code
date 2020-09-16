@@ -17,6 +17,7 @@
 class Logger:disable_copy{
 
     using min_t = std::chrono::duration<float , std::ratio<60>>;
+    using sec_t = std::chrono::duration<float , std::ratio<1>>;
 
 public:
     static Logger & instance(){
@@ -33,7 +34,7 @@ public:
     void log(std::string str){
         if(file){
             auto t = std::chrono::high_resolution_clock::now();
-            auto log = fmt::format("{} sec : {}" ,(t - _beg).count() , std::move(str));
+            auto log = fmt::format("{:.3f} sec : {}" ,static_cast<sec_t>(t - _beg).count() , std::move(str));
             {
                 std::lock_guard<std::mutex> lk(mut);
                 que.push(std::move(log));
@@ -45,7 +46,7 @@ public:
     void sync_log(const std::string & str){
         if (file){
             auto t = std::chrono::high_resolution_clock::now();
-            fmt::print(file , "{} sec : {}\n" , (t - _beg).count() , str);
+            fmt::print(file , "{:.3f} sec : {}\n" , static_cast<sec_t>(t - _beg).count() , str);
             fflush(file);
         }
     }

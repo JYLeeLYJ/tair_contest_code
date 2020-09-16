@@ -19,7 +19,12 @@ void catch_segfault_error(int sig){
     exit(1);
 }
 
-bool is_get_set_test = false;
+inline const char * sta_to_string( const Status sta ){
+    if(sta == NotFound) return "NotFound";
+    else if(sta == OutOfMemory ) return "OutOfMemory";
+    else if(sta == IOError) return "IOError";
+    else return "Ok";
+}
 
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
     Logger::set_file(log_file);
@@ -43,19 +48,21 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     static std::atomic<std::size_t> cnt{0};
     auto local_cnt = cnt++;
     // if(unlikely(local_cnt% 1000000 == 0))
-        Logger::instance().log(fmt::format("number of get = {}" ,local_cnt));
+        // Logger::instance().log(fmt::format("[Get][{}] = {}" ,local_cnt));
 
     // static std::once_flag flag;
     // std::call_once(flag , []{is_get_set_test = true;});
 
     auto k = key.to_string();
     auto * rec = find(k);
+    auto sta = Ok;
     if(!rec)
-        return NotFound;
+        sta = NotFound;
     else {
         *value = rec->value();
     }    
-    return Ok;
+    Logger::instance().log(fmt::format("[Get][{}] cnt = {} , key = {}" , sta_to_string(sta) ,local_cnt , key.data()));
+    return sta;
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
@@ -63,7 +70,7 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     static std::atomic<std::size_t> cnt{0};
     auto local_cnt = cnt++;
     // if(unlikely(local_cnt% 1000000 == 0)){
-        Logger::instance().log(fmt::format("number of set = {}" ,local_cnt));
+        // Logger::instance().log(fmt::format("number of set = {}" ,local_cnt));
     // }
 
     // if(is_get_set_test){
@@ -80,12 +87,15 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     // }
 
     auto * rec = find(key.to_string());
+    auto sta = Ok;
     if (rec){
         rec->update_value(value);
-        return Ok;
+        // return Ok;
     }
     else 
-        return append_new_value(key , value) ? Ok : OutOfMemory;
+        sta = append_new_value(key , value) ? Ok : OutOfMemory;
+    Logger::instance().log(fmt::format("[Set][{}] cnt = {} , key = {}" , sta_to_string(sta) , local_cnt , key.data()));
+    return sta;
 }
 
 Record * NvmEngine::find(const std::string & key) {
