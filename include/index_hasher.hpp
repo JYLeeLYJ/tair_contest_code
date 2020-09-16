@@ -44,9 +44,8 @@ public:
         bucket_head & head = _heads[i_bucket];
         bucket & bk = _buckets[i_bucket];
         uint8_t cnt = head.value_cnt;
-        while(std::atomic_compare_exchange_weak_explicit(
-            &head.value_cnt , &cnt , static_cast<uint8_t>(cnt + 1) ,
-            std::memory_order_release , std::memory_order_release
+        while(head.value_cnt.compare_exchange_weak(
+            cnt , static_cast<uint8_t>(cnt + 1) , std::memory_order_release , std::memory_order_relaxed
         )){
             if (cnt >= bucket_length)
                 return false;

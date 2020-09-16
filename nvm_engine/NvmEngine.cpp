@@ -42,7 +42,7 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     
     static std::atomic<std::size_t> cnt{0};
     auto local_cnt = cnt++;
-    if(unlikely(local_cnt% 1000000 == 0))
+    // if(unlikely(local_cnt% 1000000 == 0))
         Logger::instance().log(fmt::format("number of get = {}" ,local_cnt));
 
     // static std::once_flag flag;
@@ -62,9 +62,9 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     static std::atomic<std::size_t> cnt{0};
     auto local_cnt = cnt++;
-    if(unlikely(local_cnt% 1000000 == 0)){
+    // if(unlikely(local_cnt% 1000000 == 0)){
         Logger::instance().log(fmt::format("number of set = {}" ,local_cnt));
-    }
+    // }
 
     // if(is_get_set_test){
     //     Logger::instance().sync_log("is_get_set_test = true");
