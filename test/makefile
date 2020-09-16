@@ -1,9 +1,7 @@
-.PHONY: test clean
-
 clean:
-	rm -rf ./test
-	rm -rf ./log.txt
-	rm -rf ./tmp
+	rm -rf ./judge
+	rm -rf ./judge_base
+	rm -rf ./performance.log
 
-test:	
-	bash ./test.sh
+test:
+	bash ./judge.sh

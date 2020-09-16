@@ -8,6 +8,8 @@
 #include "include/logger.hpp"
 #include "fmt/format.h"
 
+//=============== Logger usage =================================
+
 void catch_bus_error(int sig){
     Logger::instance().sync_log("SIGBUS");
     exit(1);
@@ -25,6 +27,12 @@ inline const char * sta_to_string( const Status sta ){
     else if(sta == IOError) return "IOError";
     else return "Ok";
 }
+
+inline std::string to_int_string(const Slice & key){
+    return fmt::format("{}_{}" ,* reinterpret_cast<const uint64_t *>(key.data()) , * reinterpret_cast<const uint64_t *>(key.data() + 8));
+}
+
+//================================================================
 
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
     Logger::set_file(log_file);
@@ -47,21 +55,23 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     
     static std::atomic<std::size_t> cnt{0};
     auto local_cnt = cnt++;
-    // if(unlikely(local_cnt% 1000000 == 0))
-        // Logger::instance().log(fmt::format("[Get][{}] = {}" ,local_cnt));
 
-    // static std::once_flag flag;
-    // std::call_once(flag , []{is_get_set_test = true;});
+    if(unlikely((local_cnt % 1000000) == 0)){
+        Logger::instance().log(fmt::format("[Get]cnt = {}" ,local_cnt));
+    }
 
     auto k = key.to_string();
     auto * rec = find(k);
     auto sta = Ok;
-    if(!rec)
+    if(!rec){
+        uint32_t i_bk = std::hash<std::string>{}(k) % HASH_BUCKET_SIZE;
+        Logger::instance().log(fmt::format("[Not Found][{}] key = {} , {}" ,local_cnt, to_int_string(key), hash_index.print_bucket(i_bk)));
         sta = NotFound;
+    }
     else {
         *value = rec->value();
     }    
-    Logger::instance().log(fmt::format("[Get][{}] cnt = {} , key = {}" , sta_to_string(sta) ,local_cnt , key.data()));
+    // Logger::instance().log(fmt::format("[Get][{}]key = {}" , sta_to_string(sta), to_int_string(key)));
     return sta;
 }
 
@@ -69,32 +79,17 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     static std::atomic<std::size_t> cnt{0};
     auto local_cnt = cnt++;
-    // if(unlikely(local_cnt% 1000000 == 0)){
-        // Logger::instance().log(fmt::format("number of set = {}" ,local_cnt));
-    // }
 
-    // if(is_get_set_test){
-    //     Logger::instance().sync_log("is_get_set_test = true");
-    //     //search and update
-    //     auto * rec = find(key.to_string());
-    //     if(!rec) 
-    //         rec->update_value(value);
-    //     return Ok;
-    // }else{
-    //     Logger::instance().sync_log("is_get_set_test = false");
-    //     //append only
-    //     return append_new_value(key,value) ? Ok : OutOfMemory;
-    // }
+    if(unlikely((local_cnt % 1000000) == 0)){
+        Logger::instance().log(fmt::format("[Set]cnt = {}" ,local_cnt));
+    }
 
     auto * rec = find(key.to_string());
     auto sta = Ok;
     if (rec){
         rec->update_value(value);
-        // return Ok;
-    }
-    else 
+    }else 
         sta = append_new_value(key , value) ? Ok : OutOfMemory;
-    Logger::instance().log(fmt::format("[Set][{}] cnt = {} , key = {}" , sta_to_string(sta) , local_cnt , key.data()));
     return sta;
 }
 
@@ -113,10 +108,8 @@ Record * NvmEngine::find(const std::string & key) {
         }
     }
 
-    // Logger::instance().sync_log(fmt::format("find key = {} , recent_vis_index = {} , recent_i = {}" , key , head.recent_vis_index , recent_i));
     //linear search , from end to begin
     auto cnt = head.value_cnt.load();
-    // Logger::instance().sync_log(fmt::format("cnt = {}" , cnt));
     for (int i = cnt -1 ; i>=0  ; --i){
         auto & rec = pool.get_value(bk.indics[i]);
         if (rec.key() == key) {
@@ -124,8 +117,8 @@ Record * NvmEngine::find(const std::string & key) {
             return &rec;
         }
     }
+
     //not found result
-    // return std::numeric_limits<uint32_t>::max();
     return nullptr;
 }
 
@@ -134,13 +127,16 @@ bool NvmEngine::append_new_value(const Slice & key , const Slice & value){
     uint32_t i_bk = std::hash<std::string>{}(k) % HASH_BUCKET_SIZE;
 
     auto index = pool.allocate_seq();
-    if(!pool.is_valid_index(index)) 
+    if(!pool.is_valid_index(index)) {
         return false;
+    }
     
-    if(!hash_index.append(i_bk ,index))
+    if(!hash_index.append(i_bk ,index)){
         return false;
+    }
     
     pool.set_value(index , key , value);
+    // Logger::instance().log(fmt::format("[Set] ibk= {} ,index = {} , key = {}" , i_bk,  index, to_int_string(key)));
     return true;
 }
 

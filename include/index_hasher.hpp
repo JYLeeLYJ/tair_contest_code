@@ -7,6 +7,7 @@
 #include <array>
 
 #include "include/utils.hpp"
+#include "fmt/format.h"
 
 //HashMap with no rehashing
 template<std::size_t bucket_size , std::size_t bucket_length>
@@ -43,17 +44,27 @@ public:
     bool append(std::size_t i_bucket , uint32_t index) {
         bucket_head & head = _heads[i_bucket];
         bucket & bk = _buckets[i_bucket];
-        uint8_t cnt = head.value_cnt;
-        while(head.value_cnt.compare_exchange_weak(
-            cnt , static_cast<uint8_t>(cnt + 1) , std::memory_order_release , std::memory_order_relaxed
-        )){
-            if (cnt >= bucket_length)
+        uint8_t cnt = head.value_cnt++;
+        // while(head.value_cnt.compare_exchange_weak(
+        //     cnt , static_cast<uint8_t>(cnt + 1) , std::memory_order_release , std::memory_order_relaxed
+        // )){
+            if (cnt >= bucket_length){
+                head.value_cnt = bucket_length; 
                 return false;
-        }
-        auto i = cnt + 1;
-        head.recent_vis_index = i;
-        bk.indics[i] = index;
+            }
+        // }
+        // auto i = cnt + 1;
+        // head.recent_vis_index = i;
+        // bk.indics[i] = index;
+        head.recent_vis_index = cnt;
+        bk.indics[cnt] = index;
         return true;
+    }
+
+    std::string print_bucket(std::size_t i) const {
+        auto & bk = _buckets[i];
+        return fmt::format("bucket index = {} , value_cnt = {} ,values={} {} {} {} {} {} {} {}" , i ,_heads[i].value_cnt.load(), bk.indics[0] , bk.indics[1] , bk.indics[2],
+        bk.indics[3] ,bk.indics[4] , bk.indics[5] , bk.indics[6] , bk.indics[7] );
     }
 
 private:

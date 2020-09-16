@@ -12,12 +12,12 @@
 
 class NvmEngine : DB {
     #ifdef LOCAL_TEST
-    static constexpr size_t VALUE_SCALE = 64 * 1024 ;   //64K
-    static constexpr size_t HASH_BUCKET_SIZE = 8 * 1024;
+    static constexpr size_t VALUE_SCALE = 800 * 1024 ;   //64K
     #else
     static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; // 48M * 16 threads
-    static constexpr size_t HASH_BUCKET_SIZE = VALUE_SCALE / 8;
     #endif
+
+    static constexpr size_t HASH_BUCKET_SIZE = VALUE_SCALE / 8;
 public:
     static Status CreateOrOpen(const std::string& name, DB** dbptr);
     Status Get(const Slice& key, std::string* value) override;
