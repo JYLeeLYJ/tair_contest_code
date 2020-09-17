@@ -7,7 +7,7 @@ get_per_thread=$2
 
 rm -rf ./judge_base
 rm -rf ./judge
-rm -rf ./DB
+# rm -rf ./DB
 
 g++ -pthread -o judge judge.cpp random.cpp -L $LIB_PATH -l engine -I $INCLUDE_DIR -g -mavx2 -std=c++11
 
@@ -25,12 +25,12 @@ echo "************ Bench *************"
 echo "********************************"
 
 echo ""
+
 echo "======== [Base] =========="
-# rm -f /mnt/pmem/DB
-./judge_base -s $set_per_thread -g $get_per_thread
+./judge_base -s $set_per_thread -g $get_per_thread -l ./base.log
 
 echo "======== [Engine] ========"
-./judge -s $set_per_thread -g $get_per_thread
+./judge -s $set_per_thread -g $get_per_thread -l ./engine.log
 
 echo ""
 echo ""

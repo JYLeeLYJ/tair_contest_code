@@ -57,7 +57,7 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     auto local_cnt = cnt++;
 
     if(unlikely((local_cnt % 10000000) == 0)){
-        Logger::instance().log(fmt::format("[Get]cnt = {} ,  {}% miss " ,local_cnt , not_found , (not_found * 100)/(local_cnt+1)));
+        Logger::instance().log(fmt::format("[Get]cnt = {} , {} % miss " ,local_cnt , not_found , (not_found * 100)/(local_cnt+1)));
     }
 
     auto k = key.to_string();
@@ -136,6 +136,7 @@ bool NvmEngine::append_new_value(const Slice & key , const Slice & value){
 
 NvmEngine::NvmEngine(const std::string & file_name)
 :pool(file_name) {
+    Logger::instance().sync_log(fmt::format("hash bucket len = {}" , hash_index.bk_len));
     Logger::instance().sync_log("NvmEngine init\n*******************************");
 }
 

@@ -37,12 +37,20 @@ OPT += $(PROFILING_FLAGS)
 DEBUG_SUFFIX = "_debug"
 endif
 
+ifeq ($(MAKECMDGOALS),test)
+  OPT += -DLOCAL_TEST
+endif
+
+# for fmt header-only usage
+OPT += -DFMT_HEADER_ONLY
+
 # ----------------------------------------------
 SRC_PATH = $(CURDIR)
 
 # ----------------Dependences-------------------
 
 INCLUDE_PATH = -I./ 
+INCLUDE_PATH += -I../external
 
 # ---------------End Dependences----------------
 
@@ -110,7 +118,7 @@ dummy := $(shell mkdir -p $(LIBOUTPUT))
 LIBRARY = $(LIBOUTPUT)/${LIBNAME}.a
 INCLUDE_PATH += -I$(EXEC_DIR)
 
-.PHONY: clean dbg all
+.PHONY: clean dbg all test
 
 %.o: %.cpp
 	  $(AM_V_CC)$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -118,6 +126,8 @@ INCLUDE_PATH += -I$(EXEC_DIR)
 all: $(LIBRARY)
 
 dbg: $(LIBRARY)
+
+test: $(LIBRARY)
 
 $(LIBRARY): $(LIBOBJECTS)
 	$(AM_V_at)rm -f $@

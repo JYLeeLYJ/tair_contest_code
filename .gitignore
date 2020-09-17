@@ -35,5 +35,6 @@
 .vscode
 
 # log text files
+*.log
 *.txt
 */DB

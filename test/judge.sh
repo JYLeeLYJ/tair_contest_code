@@ -3,7 +3,6 @@
 INCLUDE_DIR="../include"
 LIB_PATH="../lib"
 
-rm -rf ./judge_base
 rm -rf ./judge
 
 g++ -pthread -o judge judge.cpp random.cpp -L $LIB_PATH -l engine -I $INCLUDE_DIR -g -mavx2 -std=c++11
@@ -18,7 +17,7 @@ fi
 echo ""
 echo ""
 echo "********************************"
-echo "************ Test **************"
+echo "******* Correctness Test *******"
 echo "********************************"
 
 ./judge

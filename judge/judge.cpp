@@ -25,7 +25,7 @@ int PER_SET = 480;
 int PER_GET = 480;
 const ull BASE = 199997;
 struct  timeval TIME_START, TIME_END;
-const int MAX_POOL_SIZE = 1e4;
+const int MAX_POOL_SIZE = 1e5;
 int POOL_TOP = 0;
 ull key_pool[MAX_POOL_SIZE];
 int MODE = 1;
@@ -43,6 +43,7 @@ ull seed[] = {
 std::atomic<int> cnt_get{0};
 std::atomic<int> cnt_set{0};
 
+std::string log_name{};
 
 void init_pool_seed() {
     for(int i = 0; i < 16; i++) {
@@ -114,7 +115,7 @@ void config_parse(int argc, char *argv[]) {
 
     int opt = 0;
 
-    while((opt = getopt(argc, argv, "hs:g:")) != -1) {
+    while((opt = getopt(argc, argv, "hs:g:l:")) != -1) {
         switch(opt) {
             case 'h':
                 printf("Usage: ./judge -s <set-size-per-Thread> -g <get-size-per-Thread>\n");
@@ -128,6 +129,8 @@ void config_parse(int argc, char *argv[]) {
             case 'g':
                 PER_GET = atoi(optarg);
                 break;
+            case 'l':
+                log_name = optarg;
         }
     }
 }
@@ -163,7 +166,7 @@ int main(int argc, char *argv[]) {
 
     init_pool_seed();
 
-    FILE * log_file =  fopen("./performance.log", "w");
+    FILE * log_file =  fopen( log_name.data(), "w");
 
     DB::CreateOrOpen("./DB", &db, log_file);
 

@@ -1,8 +1,7 @@
 clean:
 	rm -rf ./judge
 	rm -rf ./judge_base
-	rm -rf ./performance.log
-	rm -rf ./DB
+	rm -rf ./*.log
 
 bench:
-	bash ./judge.sh 480 480
+	bash ./judge.sh 4800 4800
