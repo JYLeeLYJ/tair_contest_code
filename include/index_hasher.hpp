@@ -45,17 +45,10 @@ public:
         bucket_head & head = _heads[i_bucket];
         bucket & bk = _buckets[i_bucket];
         uint8_t cnt = head.value_cnt++;
-        // while(head.value_cnt.compare_exchange_weak(
-        //     cnt , static_cast<uint8_t>(cnt + 1) , std::memory_order_release , std::memory_order_relaxed
-        // )){
-            if (cnt >= bucket_length){
-                head.value_cnt = bucket_length; 
-                return false;
-            }
-        // }
-        // auto i = cnt + 1;
-        // head.recent_vis_index = i;
-        // bk.indics[i] = index;
+        if (cnt >= bucket_length){
+            head.value_cnt = bucket_length; 
+            return false;
+        }
         head.recent_vis_index = cnt;
         bk.indics[cnt] = index;
         return true;

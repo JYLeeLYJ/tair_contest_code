@@ -6,7 +6,6 @@
 #include <atomic>
 
 #include "include/db.hpp"
-// #include "value_pool.hpp"
 #include "include/index_hasher.hpp"
 #include "include/record_pool.hpp"
 
@@ -28,13 +27,20 @@ public:
 
 private:
 
+    Status Update(std::string key , const Slice & value) ;
+    Status Append(std::string key , const Slice & value) ;
+
+private:
+
     Record * find(const std::string & key ) ;
 
     bool append_new_value(const Slice & key , const Slice & value);
 
 private:
 
+    //use memory ~ 768M * 4 + 96M * 2 = 3GB
     Hash<HASH_BUCKET_SIZE , 8> hash_index{};
+    //O(1) space
     record_pool<VALUE_SCALE+10> pool;
 
     std::atomic<std::size_t> seq{0};
