@@ -57,7 +57,7 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     auto local_cnt = cnt++;
 
     if(unlikely((local_cnt % 10000000) == 0)){
-        Logger::instance().log(fmt::format("[Get]cnt = {} , {} not_found , {}% miss " ,local_cnt , not_found , local_cnt*100 / not_found));
+        Logger::instance().log(fmt::format("[Get]cnt = {} , {} not_found , {}% miss " ,local_cnt , not_found , (not_found * 100)/(local_cnt+1)));
     }
 
     auto k = key.to_string();
@@ -75,7 +75,7 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     auto local_cnt = cnt++;
 
     if(unlikely((local_cnt % 10000000) == 0)){
-        Logger::instance().log(fmt::format("[Set]cnt = {} , {} % miss" ,local_cnt , oom_cnt*100/local_cnt));
+        Logger::instance().log(fmt::format("[Set]cnt = {} , {} % miss" ,local_cnt , (oom_cnt*100)/(local_cnt + 1)));
     }
 
     auto * rec = find(key.to_string());
