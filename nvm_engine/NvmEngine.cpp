@@ -53,35 +53,29 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
     
-    static std::atomic<std::size_t> cnt{0};
+    static std::atomic<std::size_t> cnt{0} , not_found{0};
     auto local_cnt = cnt++;
 
-    if(unlikely((local_cnt % 1000000) == 0)){
-        Logger::instance().log(fmt::format("[Get]cnt = {}" ,local_cnt));
+    if(unlikely((local_cnt % 10000000) == 0)){
+        Logger::instance().log(fmt::format("[Get]cnt = {} , {} not_found , {}% miss " ,local_cnt , not_found , local_cnt*100 / not_found));
     }
 
     auto k = key.to_string();
     auto * rec = find(k);
-    auto sta = Ok;
-    if(!rec){
-        uint32_t i_bk = std::hash<std::string>{}(k) % HASH_BUCKET_SIZE;
-        Logger::instance().log(fmt::format("[Not Found][{}] key = {} , {}" ,local_cnt, to_int_string(key), hash_index.print_bucket(i_bk)));
-        sta = NotFound;
-    }
-    else {
+    if (rec)
         *value = rec->value();
-    }    
-    // Logger::instance().log(fmt::format("[Get][{}]key = {}" , sta_to_string(sta), to_int_string(key)));
-    return sta;
+    else 
+        ++ not_found;
+    return Ok;
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
-    static std::atomic<std::size_t> cnt{0};
+    static std::atomic<std::size_t> cnt{0} , oom_cnt{0};
     auto local_cnt = cnt++;
 
-    if(unlikely((local_cnt % 1000000) == 0)){
-        Logger::instance().log(fmt::format("[Set]cnt = {}" ,local_cnt));
+    if(unlikely((local_cnt % 10000000) == 0)){
+        Logger::instance().log(fmt::format("[Set]cnt = {} , {} % miss" ,local_cnt , oom_cnt*100/local_cnt));
     }
 
     auto * rec = find(key.to_string());
@@ -90,6 +84,7 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
         rec->update_value(value);
     }else 
         sta = append_new_value(key , value) ? Ok : OutOfMemory;
+    if(sta == OutOfMemory) ++ oom_cnt;
     return sta;
 }
 
@@ -136,7 +131,6 @@ bool NvmEngine::append_new_value(const Slice & key , const Slice & value){
     }
     
     pool.set_value(index , key , value);
-    // Logger::instance().log(fmt::format("[Set] ibk= {} ,index = {} , key = {}" , i_bk,  index, to_int_string(key)));
     return true;
 }
 
