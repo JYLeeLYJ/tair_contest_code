@@ -9,6 +9,13 @@
 #include "fmt/format.h"
 
 //=============== Logger usage =================================
+#ifdef LOCAL_TEST
+constexpr uint64_t LOG_FEQ = 1e4;   //10 k
+#else
+constexpr uint64_t LOG_FEQ = 1e7;   //10 m
+#endif
+
+// std::atomic<uint64_t> find_cnt{0};
 
 void catch_bus_error(int sig){
     Logger::instance().sync_log("SIGBUS");
@@ -53,30 +60,30 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
     
-    static std::atomic<std::size_t> cnt{0} , not_found{0};
-    auto local_cnt = cnt++;
+    // static std::atomic<std::size_t> cnt{0} , not_found{0};
+    // auto local_cnt = cnt++;
 
-    if(unlikely((local_cnt % 10000000) == 0)){
-        Logger::instance().log(fmt::format("[Get]cnt = {} , {} % miss " ,local_cnt , not_found , (not_found * 100)/(local_cnt+1)));
-    }
+    // if(unlikely((local_cnt % LOG_FEQ) == 0)){
+    //     Logger::instance().log(fmt::format("[Get]cnt = {} , {} % miss " ,local_cnt , (not_found * 100)/(local_cnt+1)));
+    // }
 
     auto k = key.to_string();
     auto * rec = find(k);
     if (rec)
         *value = rec->value();
-    else 
-        ++ not_found;
+    // else 
+    //     ++ not_found;
     return Ok;
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
-    static std::atomic<std::size_t> cnt{0} , oom_cnt{0};
-    auto local_cnt = cnt++;
+    // static std::atomic<std::size_t> cnt{0} , oom_cnt{0};
+    // auto local_cnt = cnt++;
 
-    if(unlikely((local_cnt % 10000000) == 0)){
-        Logger::instance().log(fmt::format("[Set]cnt = {} , {} % miss" ,local_cnt , (oom_cnt*100)/(local_cnt + 1)));
-    }
+    // if(unlikely((local_cnt % LOG_FEQ) == 0)){
+    //     Logger::instance().log(fmt::format("[Set]cnt = {} , {} % miss , find cnt = {}" ,local_cnt , (oom_cnt*100)/(local_cnt + 1) , find_cnt));
+    // }
 
     auto * rec = find(key.to_string());
     auto sta = Ok;
@@ -84,12 +91,17 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
         rec->update_value(value);
     }else 
         sta = append_new_value(key , value) ? Ok : OutOfMemory;
-    if(sta == OutOfMemory) ++ oom_cnt;
+    // if(sta == OutOfMemory) ++ oom_cnt;
     return sta;
 }
 
 Record * NvmEngine::find(const std::string & key) {
-    uint32_t i_bk = std::hash<std::string>{}(key) % HASH_BUCKET_SIZE;
+    uint64_t hash_value = std::hash<std::string>{}(key);
+    if(unlikely(!bitset.test(hash_value % bitset.max_index)))
+        return nullptr;
+
+    // ++find_cnt;
+    uint32_t i_bk =  hash_value % HASH_BUCKET_SIZE;
     auto bk_pair = hash_index.get_bucket(i_bk) ;
     auto & head = bk_pair.first;
     auto & bk = bk_pair.second;
@@ -119,7 +131,8 @@ Record * NvmEngine::find(const std::string & key) {
 
 bool NvmEngine::append_new_value(const Slice & key , const Slice & value){
     auto k = key.to_string();
-    uint32_t i_bk = std::hash<std::string>{}(k) % HASH_BUCKET_SIZE;
+    auto hash_value =  std::hash<std::string>{}(k) ;
+    uint32_t i_bk = hash_value % HASH_BUCKET_SIZE;
 
     auto index = pool.allocate_seq();
     if(!pool.is_valid_index(index)) {
@@ -131,6 +144,7 @@ bool NvmEngine::append_new_value(const Slice & key , const Slice & value){
     }
     
     pool.set_value(index , key , value);
+    bitset.set(hash_value % bitset.max_index);
     return true;
 }
 

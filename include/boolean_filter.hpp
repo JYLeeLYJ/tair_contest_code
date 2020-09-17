@@ -20,7 +20,7 @@ class bitmap_filter:disable_copy{
 
         void set(std::size_t off) {
             uint8_t v = value;
-            while(value.compare_exchange_weak(
+            while(!value.compare_exchange_weak(
                 v , static_cast<uint8_t>(v | (1 << off)) , std::memory_order_release , std::memory_order_relaxed
             ));
         }

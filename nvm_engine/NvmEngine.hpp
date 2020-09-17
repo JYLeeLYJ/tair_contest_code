@@ -8,6 +8,7 @@
 #include "include/db.hpp"
 #include "include/index_hasher.hpp"
 #include "include/record_pool.hpp"
+#include "include/boolean_filter.hpp"
 
 class NvmEngine : DB {
     #ifdef LOCAL_TEST
@@ -37,7 +38,8 @@ private:
     bool append_new_value(const Slice & key , const Slice & value);
 
 private:
-
+    //use memory ~ 768M / 2 = 364M
+    bitmap_filter<VALUE_SCALE * 4> bitset{};
     //use memory ~ 768M * 4 + 96M * 2 = 3GB
     Hash<HASH_BUCKET_SIZE , 8> hash_index{};
     //O(1) space
