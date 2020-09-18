@@ -38,8 +38,22 @@ void test_boolean_filter(){
     ASSERT(bitset.test(40) == false);
 }
 
+void test_fast_key_cmp(){
+    std::string s1 = std::string(8 , 'a') + std::string(8 , 'b');
+    std::string s2 = s1;
+    std::string s3 = std::string(8 , 'b') + std::string(8 ,'b');
+    std::string s4 = std::string(16,'a');
+
+    // fmt::print("s1 = {} , s2 = {} , s3 = {} , s4 = {}\n" , s1 , s2 ,s3 ,s4);
+
+    ASSERT(fast_key_cmp_eq(s1.data() , s2.data()));
+    ASSERT(!fast_key_cmp_eq(s1.data() , s3.data()));
+    ASSERT(!fast_key_cmp_eq(s1.data() , s4.data()));
+}
+
 void main_test_func(){
     TEST(test_boolean_filter);
+    TEST(test_fast_key_cmp);
 }
 
 int main(){

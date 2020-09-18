@@ -8,6 +8,8 @@
 #include "include/logger.hpp"
 #include "fmt/format.h"
 
+#include <nmmintrin.h>
+
 //=============== Logger usage =================================
 #ifdef LOCAL_TEST
 constexpr uint64_t LOG_FEQ = 1e4;   //10 k
@@ -67,12 +69,12 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     //     Logger::instance().log(fmt::format("[Get]cnt = {} , {} % miss " ,local_cnt , (not_found * 100)/(local_cnt+1)));
     // }
 
-    auto k = key.to_string();
-    auto * rec = find(k);
+    std::string key_str = key.to_string();
+    uint64_t hash_value = std::hash<std::string>{}(key_str);
+    
+    auto * rec = find(key_str , hash_value);
     if (rec)
         *value = rec->value();
-    // else 
-    //     ++ not_found;
     return Ok;
 }
 
@@ -85,22 +87,27 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
     //     Logger::instance().log(fmt::format("[Set]cnt = {} , {} % miss , find cnt = {}" ,local_cnt , (oom_cnt*100)/(local_cnt + 1) , find_cnt));
     // }
 
-    auto * rec = find(key.to_string());
-    auto sta = Ok;
-    if (rec){
-        rec->update_value(value);
-    }else 
-        sta = append_new_value(key , value) ? Ok : OutOfMemory;
-    // if(sta == OutOfMemory) ++ oom_cnt;
+    std::string key_str = key.to_string();
+    uint64_t hash_value = std::hash<std::string>{}(key_str);
+
+    Status sta = Ok;
+
+    //not found in bitset then emit find()
+    if(unlikely(bitset.test(hash_value % bitset.max_index))){
+        Record * rec = find(key_str , hash_value);
+        if(rec) 
+            rec->update_value(value);  
+        else 
+            sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
+    }else{
+        sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
+    }
+
     return sta;
 }
 
-Record * NvmEngine::find(const std::string & key) {
-    uint64_t hash_value = std::hash<std::string>{}(key);
-    if(unlikely(!bitset.test(hash_value % bitset.max_index)))
-        return nullptr;
+Record * NvmEngine::find(const std::string & key , uint64_t hash_value) {
 
-    // ++find_cnt;
     uint32_t i_bk =  hash_value % HASH_BUCKET_SIZE;
     auto bk_pair = hash_index.get_bucket(i_bk) ;
     auto & head = bk_pair.first;
@@ -110,7 +117,7 @@ Record * NvmEngine::find(const std::string & key) {
     uint8_t recent_i = head.recent_vis_index;
     if(likely(recent_i != std::numeric_limits<uint8_t>::max())){
         Record & recent_rec = pool.get_value(bk.indics[recent_i]);
-        if( recent_rec.key() == key){
+        if(fast_key_cmp_eq(recent_rec.key_data() , key.data())){
             return &recent_rec;
         }
     }
@@ -119,7 +126,7 @@ Record * NvmEngine::find(const std::string & key) {
     auto cnt = head.value_cnt.load();
     for (int i = cnt -1 ; i>=0  ; --i){
         auto & rec = pool.get_value(bk.indics[i]);
-        if (rec.key() == key) {
+        if(fast_key_cmp_eq(rec.key_data() , key.data())){
             head.recent_vis_index = i;
             return &rec;
         }
@@ -129,9 +136,7 @@ Record * NvmEngine::find(const std::string & key) {
     return nullptr;
 }
 
-bool NvmEngine::append_new_value(const Slice & key , const Slice & value){
-    auto k = key.to_string();
-    auto hash_value =  std::hash<std::string>{}(k) ;
+bool NvmEngine::append_new_value(const Slice & key , const Slice & value , uint64_t hash_value){
     uint32_t i_bk = hash_value % HASH_BUCKET_SIZE;
 
     auto index = pool.allocate_seq();

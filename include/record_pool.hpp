@@ -30,6 +30,10 @@ struct Record{
         return std::string(_key , key_size);
     }
 
+    const char * key_data() const {
+        return _key;
+    } 
+
     std::string value() const{
         return std::string (_value , value_size);
     }
@@ -64,7 +68,7 @@ public:
         return index >= N ? std::numeric_limits<std::size_t>::max() : index;
     }
 
-    static inline bool is_valid_index(std::size_t i) {
+    static inline bool is_valid_index(const std::size_t i) {
         return i != std::numeric_limits<std::size_t>::max();
     }
 

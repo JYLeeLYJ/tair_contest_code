@@ -26,16 +26,16 @@ public:
     explicit NvmEngine(const std::string & file_name);
     ~NvmEngine() override;
 
+// private:
+
+//     Status Update(std::string key , const Slice & value) ;
+//     Status Append(std::string key , const Slice & value) ;
+
 private:
 
-    Status Update(std::string key , const Slice & value) ;
-    Status Append(std::string key , const Slice & value) ;
+    Record * find(const std::string & key ,uint64_t hash_value) ;
 
-private:
-
-    Record * find(const std::string & key ) ;
-
-    bool append_new_value(const Slice & key , const Slice & value);
+    bool append_new_value(const Slice & key , const Slice & value , uint64_t hash_value);
 
 private:
     //use memory ~ 768M / 2 = 364M

@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <type_traits>
+// #include <immintrin.h>
 
 #define UNUSED(x) (void)x
 
@@ -30,5 +31,10 @@ struct ref_pair{
         
     }
 };
+
+inline bool fast_key_cmp_eq(const char * lhs , const char * rhs){
+    using pcu64_t = const uint64_t *;
+    return *((pcu64_t)(lhs)) == *((pcu64_t)(rhs)) && *((pcu64_t)(lhs)+1) == *((pcu64_t)(rhs)+1) ;
+}
 
 #endif
