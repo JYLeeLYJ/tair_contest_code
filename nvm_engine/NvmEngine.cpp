@@ -8,13 +8,11 @@
 #include "include/logger.hpp"
 #include "fmt/format.h"
 
-#include <nmmintrin.h>
-
 //=============== Logger usage =================================
 #ifdef LOCAL_TEST
-constexpr uint64_t LOG_FEQ = 1e4;   //10 k
+constexpr uint64_t LOG_FEQ = 1e3;   //10 k
 #else
-constexpr uint64_t LOG_FEQ = 1e7;   //10 m
+constexpr uint64_t LOG_FEQ = 2e6;   //10 m
 #endif
 
 // std::atomic<uint64_t> find_cnt{0};
@@ -61,13 +59,11 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 }
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
-    
-    // static std::atomic<std::size_t> cnt{0} , not_found{0};
-    // auto local_cnt = cnt++;
 
-    // if(unlikely((local_cnt % LOG_FEQ) == 0)){
-    //     Logger::instance().log(fmt::format("[Get]cnt = {} , {} % miss " ,local_cnt , (not_found * 100)/(local_cnt+1)));
-    // }
+    static std::once_flag flag{};
+    std::call_once(flag , []{
+        Logger::instance().log(" Start Get/Set Test. ");
+    });
 
     std::string key_str = key.to_string();
     uint64_t hash_value = std::hash<std::string>{}(key_str);
@@ -79,13 +75,6 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 }
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
-
-    // static std::atomic<std::size_t> cnt{0} , oom_cnt{0};
-    // auto local_cnt = cnt++;
-
-    // if(unlikely((local_cnt % LOG_FEQ) == 0)){
-    //     Logger::instance().log(fmt::format("[Set]cnt = {} , {} % miss , find cnt = {}" ,local_cnt , (oom_cnt*100)/(local_cnt + 1) , find_cnt));
-    // }
 
     std::string key_str = key.to_string();
     uint64_t hash_value = std::hash<std::string>{}(key_str);
