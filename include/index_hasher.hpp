@@ -23,14 +23,12 @@ public :
 
     struct bucket{
         uint32_t indics[bucket_length]{};
-        // std::array<uint32_t , bucket_length> indexs{};
     };
 
     static constexpr std::size_t bk_size = bucket_size ;
     static constexpr std::size_t bk_len = bucket_length;
 
     static_assert(sizeof(bucket_head) == 2 , "error head size");
-    static_assert(sizeof(bucket) == 32 , "error bucket len");
 
 public:
     explicit Hash() noexcept
@@ -52,12 +50,6 @@ public:
         head.recent_vis_index = cnt;
         bk.indics[cnt] = index;
         return true;
-    }
-
-    std::string print_bucket(std::size_t i) const {
-        auto & bk = _buckets[i];
-        return fmt::format("bucket index = {} , value_cnt = {} ,values={} {} {} {} {} {} {} {}" , i ,_heads[i].value_cnt.load(), bk.indics[0] , bk.indics[1] , bk.indics[2],
-        bk.indics[3] ,bk.indics[4] , bk.indics[5] , bk.indics[6] , bk.indics[7] );
     }
 
 private:

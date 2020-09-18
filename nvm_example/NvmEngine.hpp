@@ -32,10 +32,12 @@ private:
         char key[16];
         char value[80];
     };
-    static const uint32_t ENTRY_MAX = NVM_SIZE / sizeof(entry_t);
-    static const uint32_t BUCKET_MAX = DRAM_SIZE / sizeof(uint32_t);
+
+    //load factor ~ 0.73
+    static const uint32_t ENTRY_MAX = NVM_SIZE / sizeof(entry_t);       //74G / 80 entries
+    static const uint32_t BUCKET_MAX = DRAM_SIZE / sizeof(uint32_t);    //1G buckets
     static const uint32_t BUCKET_PER_MUTEX = 30000000;
-    static const uint32_t MUTEX_CNT = BUCKET_MAX / BUCKET_PER_MUTEX + 1;
+    static const uint32_t MUTEX_CNT = BUCKET_MAX / BUCKET_PER_MUTEX + 1;    //140 mutex
 
     entry_t *entry;
     uint32_t *bucket;

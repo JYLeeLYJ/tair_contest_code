@@ -42,6 +42,7 @@ inline std::string to_int_string(const Slice & key){
 //================================================================
 
 Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
+
     Logger::set_file(log_file);
     Logger::instance().sync_log("log start");
 

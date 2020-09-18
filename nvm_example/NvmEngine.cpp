@@ -5,7 +5,7 @@
 
 #include <cassert>
 
-#define USE_LIBPMEM
+// #define USE_LIBPMEM
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     return NvmEngine::CreateOrOpen(name, dbptr);
@@ -92,7 +92,7 @@ NvmEngine::NvmEngine(const std::string &name) {
         exit(1);
     }
 #else
-    if ((entry = (entry_t *)mmap(NULL, BUCKET_SIZE * sizeof(entry_t),
+    if ((entry = (entry_t *)mmap(NULL, ENTRY_MAX * sizeof(entry_t),
                                  PROT_READ | PROT_WRITE,
                                  MAP_ANON | MAP_SHARED, 0, 0)) == NULL) {
         perror("mmap failed");
