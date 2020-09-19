@@ -89,7 +89,7 @@ default: all
 
 WARNING_FLAGS = -W -Wextra -Wall -Wsign-compare \
   							-Wno-unused-parameter -Woverloaded-virtual \
-								-Wnon-virtual-dtor -Wno-missing-field-initializers
+								-Wnon-virtual-dtor -Wno-missing-field-initializers -Waligned-new
 
 ifndef DISABLE_WARNING_AS_ERROR
   WARNING_FLAGS += -Werror

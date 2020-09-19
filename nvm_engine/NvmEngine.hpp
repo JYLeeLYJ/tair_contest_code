@@ -12,11 +12,11 @@
 
 class NvmEngine : DB {
     #ifdef LOCAL_TEST
-    static constexpr size_t VALUE_SCALE = 2 * 1024 * 1024 ;   //2M
-    static constexpr size_t FILTER_SIZE = VALUE_SCALE;
+    static constexpr size_t VALUE_SCALE = 2 * 1024 * 1024 ;   //64K
+    static constexpr size_t FILTER_SCALE = VALUE_SCALE;
     #else
     static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; // 48M * 16 threads
-    static constexpr size_t FILTER_SIZE = 1024*1024*1024;
+    static constexpr size_t FILTER_SCALE = 1024 * 1024 * 1024;
     #endif
 
     static constexpr size_t BUCKET_LEN  = 4;
@@ -36,8 +36,8 @@ private:
     bool append_new_value(const Slice & key , const Slice & value , uint64_t hash_value);
 
 private:
-    //use memory ~ 1GB
-    bitmap_filter<FILTER_SIZE * 8> bitset{};
+    //use memory ~ 1GB , 768M seems better 
+    bitmap_filter<FILTER_SCALE * 8> bitset{};
     //use memory ~ 768M * 4 + 96M * 2 * 2 = 3GB
     Hash<HASH_BUCKET_SIZE , BUCKET_LEN> hash_index{};
     //O(1) space
