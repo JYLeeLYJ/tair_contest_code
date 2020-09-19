@@ -27,7 +27,7 @@ public:
     static constexpr std::size_t max_size = max_index / 8;
 
     static_assert(max_index % 8 == 0 , "incorrect max_index .");
-    static_assert(sizeof(inner_block) == sizeof(char));
+    static_assert(sizeof(inner_block) == sizeof(char) , "error size");
 public:
     explicit bitmap_filter(){
         _bitset = (inner_block *)malloc(max_size);
