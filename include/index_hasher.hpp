@@ -33,10 +33,11 @@ public :
 
 public:
     explicit Hash() noexcept
-    :_buckets(new bucket[bucket_size]) 
-    ,_heads(new bucket_head[bucket_size]){
-        memset(_buckets.get() , 0 , bucket_size * sizeof(bucket));
-        memset(_heads.get() , 0 , bucket_size * sizeof(bucket_head));
+    // :_buckets(new bucket[bucket_size]) 
+    :_heads(bucket_size){
+        _buckets = (bucket *)malloc(bucket_size * sizeof(bucket));
+        // _buckets = new bucket[bucket_size];
+        memset(_buckets , 0 , sizeof(bucket) * bucket_size);
     }
     
     std::pair<bucket_head &, bucket &> get_bucket(std::size_t i ){
@@ -58,13 +59,14 @@ public:
 
 private:
 
-    std::unique_ptr<bucket []> _buckets{};
-    std::unique_ptr<bucket_head[]> _heads{};
-    
-
     // std::vector<bucket> _buckets;
-    // std::vector<bucket_head> _heads;
+    std::vector<bucket_head> _heads;
 
+    // std::unique_ptr<bucket []> _buckets{};
+    // std::unique_ptr<bucket_head[]> _heads{};
+    
+    bucket * _buckets;
+    // bucket_head * _heads;
 };
 
 #endif

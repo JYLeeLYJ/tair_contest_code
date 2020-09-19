@@ -9,10 +9,7 @@
 template<std::size_t N>
 class bitmap_filter:disable_copy{
     struct inner_block{
-        std::atomic<uint8_t> value;
-
-        constexpr explicit inner_block()noexcept
-        :value(0){}
+        std::atomic<uint8_t> value{0};
 
         bool test(std::size_t off) const{
             return value & (1 << off);
@@ -27,10 +24,15 @@ class bitmap_filter:disable_copy{
     };
 public:
     static constexpr std::size_t max_index = ( N % 8 == 0 ? N : (N / 8 + 1) * 8);
+    static constexpr std::size_t max_size = max_index / 8;
+
     static_assert(max_index % 8 == 0 , "incorrect max_index .");
+    static_assert(sizeof(inner_block) == sizeof(char));
 public:
-    explicit bitmap_filter()
-    :_bitset(){
+    explicit bitmap_filter(){
+        _bitset = (inner_block *)malloc(max_size);
+        // _bitset = new inner_block[max_size];
+        memset(_bitset, 0 , max_size);
     }
 
     bool test(std::size_t i ) const{
@@ -46,8 +48,8 @@ public:
     }
     
 private:
-    static constexpr std::size_t max_size = max_index / 8;
-    std::array<inner_block , max_size> _bitset;
+    // std::vector<inner_block> _bitset;
+    inner_block * _bitset;
 };
 
 #endif
