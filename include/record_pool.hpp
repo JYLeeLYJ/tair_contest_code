@@ -74,8 +74,10 @@ public:
 
 private:
     memory_pool<N * sizeof(Record)> pool;
-    alignas(64) std::atomic<std::size_t> seq{0};
-
+    uint64_t align_bytes1[8];
+    std::atomic<std::size_t> seq{0};
+    uint64_t align_bytes2[8];
+    
     Record * base() const noexcept{
         return static_cast<Record *>(pool.base());
     }
