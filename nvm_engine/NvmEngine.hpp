@@ -36,8 +36,8 @@ private:
     bool append_new_value(const Slice & key , const Slice & value , uint64_t hash_value);
 
 private:
-    //use memory ~ 1GB , 768M seems better 
-    bitmap_filter<FILTER_SCALE * 8> bitset{};
+    // use memory ~ 768M seems better 
+    bitmap_filter<VALUE_SCALE * 8> bitset{};
     //use memory ~ 768M * 4 + 96M * 2 * 2 = 3GB
     Hash<HASH_BUCKET_SIZE , BUCKET_LEN> hash_index{};
     //O(1) space

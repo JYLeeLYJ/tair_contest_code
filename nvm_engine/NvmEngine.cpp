@@ -61,10 +61,11 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
 
-    // static std::once_flag flag{};
-    // std::call_once(flag , []{
-    //     Logger::instance().log(" Start Get/Set Test. ");
-    // });
+    static bool flag{false};
+    if(!flag){
+        Logger::instance().log("******** Start Get *********** .");
+        flag = true;
+    }
 
     std::string key_str = key.to_string();
     uint64_t hash_value = std::hash<std::string>{}(key_str);
@@ -77,6 +78,13 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
 
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
+    static thread_local uint64_t cnt {0};
+    // static std::atomic<uint64_t> filter_miss_cnt{0};
+    static std::atomic<uint64_t> tm_find{0};
+    if(unlikely((cnt ++ % LOG_FEQ) == 0)){
+        Logger::instance().log(fmt::format("total find time = {} us" , tm_find));
+    }
+
     std::string key_str = key.to_string();
     uint64_t hash_value = std::hash<std::string>{}(key_str);
 
@@ -84,11 +92,23 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     //not found in bitset then emit find()
     if(unlikely(bitset.test(hash_value % bitset.max_index))){
-        Record * rec = find(key_str , hash_value);
+        // ++filter_miss_cnt;
+        Record * rec = nullptr;
+
+        {
+        auto beg = std::chrono::high_resolution_clock::now();
+        rec = find(key_str , hash_value);
+        auto end = std::chrono::high_resolution_clock::now();
+        
+        tm_find += std::chrono::duration_cast<std::chrono::microseconds>(end- beg).count();
+        }
+        
         if(rec) 
             rec->update_value(value);  
-        else 
+        else {
             sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
+
+        }
     }else{
         sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
     }
@@ -130,11 +150,11 @@ bool NvmEngine::append_new_value(const Slice & key , const Slice & value , uint6
     uint32_t i_bk = hash_value % HASH_BUCKET_SIZE;
 
     auto index = pool.allocate_seq();
-    if(!pool.is_valid_index(index)) {
+    if(unlikely(!pool.is_valid_index(index))) {
         return false;
     }
     
-    if(!hash_index.append(i_bk ,index)){
+    if(unlikely(!hash_index.append(i_bk ,index))){
         return false;
     }
     
