@@ -5,6 +5,7 @@
 #include <vector>
 #include <limits>
 #include <array>
+#include <memory>
 
 #include "include/utils.hpp"
 #include "fmt/format.h"
@@ -32,7 +33,10 @@ public :
 
 public:
     explicit Hash() noexcept
-    :_buckets(bucket_size) , _heads(bucket_size){
+    :_buckets(new bucket[bucket_size]) 
+    ,_heads(new bucket_head[bucket_size]){
+        memset(_buckets.get() , 0 , bucket_size * sizeof(bucket));
+        memset(_heads.get() , 0 , bucket_size * sizeof(bucket_head));
     }
     
     std::pair<bucket_head &, bucket &> get_bucket(std::size_t i ){
@@ -54,8 +58,12 @@ public:
 
 private:
 
-    std::vector<bucket> _buckets;
-    std::vector<bucket_head> _heads;
+    std::unique_ptr<bucket []> _buckets{};
+    std::unique_ptr<bucket_head[]> _heads{};
+    
+
+    // std::vector<bucket> _buckets;
+    // std::vector<bucket_head> _heads;
 
 };
 

@@ -40,8 +40,6 @@ private:
     Hash<HASH_BUCKET_SIZE , BUCKET_LEN> hash_index{};
     //O(1) space
     record_pool<VALUE_SCALE+10> pool;
-
-    std::atomic<std::size_t> seq{0};
 };
 
 #endif

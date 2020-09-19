@@ -12,7 +12,7 @@
 
 #include "logger.hpp"
 
-off_t file_len(const std::string & file){
+inline off_t file_len(const std::string & file){
     struct stat file_stat{};
     if(stat(file.data() , &file_stat) == 0)
         return file_stat.st_size;
@@ -72,8 +72,6 @@ public:
             exit(1);
         }
 
-        _endoff = N;
-
         //mmap
         return mmap(NULL, N, PROT_READ | PROT_WRITE, MAP_SHARED, _fd, 0);
     }
@@ -93,7 +91,6 @@ public:
 
 protected:
     void *  _base{nullptr};
-    std::atomic<size_t>  _endoff{0};
     int     _fd{-1};
 };
 #endif

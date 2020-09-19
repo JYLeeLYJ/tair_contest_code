@@ -61,10 +61,10 @@ Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
 
 Status NvmEngine::Get(const Slice& key, std::string* value) {
 
-    static std::once_flag flag{};
-    std::call_once(flag , []{
-        Logger::instance().log(" Start Get/Set Test. ");
-    });
+    // static std::once_flag flag{};
+    // std::call_once(flag , []{
+    //     Logger::instance().log(" Start Get/Set Test. ");
+    // });
 
     std::string key_str = key.to_string();
     uint64_t hash_value = std::hash<std::string>{}(key_str);
