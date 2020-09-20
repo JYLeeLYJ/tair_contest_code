@@ -14,9 +14,11 @@ class NvmEngine : DB {
     #ifdef LOCAL_TEST
     static constexpr size_t VALUE_SCALE = 2 * 1024 * 1024 ;   //64K
     static constexpr size_t FILTER_SCALE = VALUE_SCALE;
+    static constexpr size_t MAX_VALUE_SCLAE = VALUE_SCALE;
     #else
     static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; // 48M * 16 threads
     static constexpr size_t FILTER_SCALE = 1024 * 1024 * 1024;
+    static constexpr size_t MAX_VALUE_SCLAE = 74 * 1024 * 1024 * 1024 / sizeof(Record);
     #endif
 
     static constexpr size_t BUCKET_LEN  = 4;
@@ -41,7 +43,7 @@ private:
     //use memory ~ 768M * 4 + 96M * 2 * 2 = 3GB
     Hash<HASH_BUCKET_SIZE , BUCKET_LEN> hash_index{};
     //O(1) space
-    record_pool<VALUE_SCALE+10> pool;
+    record_pool<MAX_VALUE_SCLAE , 4> pool;
 };
 
 #endif

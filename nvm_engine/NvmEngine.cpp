@@ -149,7 +149,7 @@ Record * NvmEngine::find(const std::string & key , uint64_t hash_value) {
 bool NvmEngine::append_new_value(const Slice & key , const Slice & value , uint64_t hash_value){
     uint32_t i_bk = hash_value % HASH_BUCKET_SIZE;
 
-    auto index = pool.allocate_seq();
+    auto index = pool.allocate_seq(hash_value);
     if(unlikely(!pool.is_valid_index(index))) {
         return false;
     }
