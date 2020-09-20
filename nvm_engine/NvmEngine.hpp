@@ -18,7 +18,7 @@ class NvmEngine : DB {
     #else
     static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; // 48M * 16 threads
     static constexpr size_t FILTER_SCALE = 1024 * 1024 * 1024;
-    static constexpr size_t MAX_VALUE_SCLAE = 74 * 1024 * 1024 * 1024 / sizeof(Record);
+    static constexpr size_t MAX_VALUE_SCLAE = (uint64_t)74 * 1024 * 1024 * 1024 / sizeof(Record);
     #endif
 
     static constexpr size_t BUCKET_LEN  = 4;
