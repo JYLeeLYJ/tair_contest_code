@@ -58,8 +58,8 @@ class record_pool{
 public:
     explicit record_pool(const std::string & file_name) 
     : pool(file_name){
-        for(auto & s : seq)
-            s= 0;
+        // for(auto & s : seq)
+        //     s= 0;
         Logger::instance().sync_log("record_pool init.");
     }
 
@@ -77,16 +77,16 @@ public:
     }
 
     std::size_t allocate_seq(uint64_t key) noexcept {
-        auto bk = key % pool_bucket_cnt ;
-        auto index = seq[bk] ++ ;
-        if(index >= pool_bucket_size){
-            seq[bk] = pool_bucket_size;
-            return std::numeric_limits<std::size_t>::max();
-        }
-        else 
-            return index + bk * pool_bucket_size;
-        // auto index = seq++;
-        // return index >= N ? std::numeric_limits<std::size_t>::max() : index;
+        // auto bk = key % pool_bucket_cnt ;
+        // auto index = seq[bk] ++ ;
+        // if(index >= pool_bucket_size){
+        //     seq[bk] = pool_bucket_size;
+        //     return std::numeric_limits<std::size_t>::max();
+        // }
+        // else 
+        //     return index + bk * pool_bucket_size;
+        auto index = seq++;
+        return index >= N ? std::numeric_limits<std::size_t>::max() : index;
     }
 
     static inline bool is_valid_index(const std::size_t i) {
@@ -95,10 +95,10 @@ public:
 
 private:
     memory_pool<N * sizeof(Record)> pool;
-    // alignas(64) std::atomic<std::size_t> seq{0};
-    alignas(64) std::array<align_atomic_uint64, pool_bucket_cnt> seq;
+    alignas(64) std::atomic<std::size_t> seq{0};
+    // alignas(64) std::array<align_atomic_uint64, pool_bucket_cnt> seq;
 
-    static_assert(sizeof(seq) % 64 == 0 , "error align atomic value.");
+    // static_assert(sizeof(seq) % 64 == 0 , "error align atomic value.");
 
     Record * base() const noexcept{
         return static_cast<Record *>(pool.base());

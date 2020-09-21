@@ -76,6 +76,8 @@ Status NvmEngine::Get(const Slice& key, std::string* value) {
     return Ok;
 }
 
+static std::atomic<uint64_t> tm_append{0};
+
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     static thread_local uint64_t cnt {0};
@@ -117,7 +119,7 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 }
 
 Record * NvmEngine::find(const std::string & key , uint64_t hash_value) {
-
+        
     uint32_t i_bk =  hash_value % HASH_BUCKET_SIZE;
     auto bk_pair = hash_index.get_bucket(i_bk) ;
     auto & head = bk_pair.first;

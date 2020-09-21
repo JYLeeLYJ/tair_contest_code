@@ -28,6 +28,7 @@ struct  timeval TIME_START, TIME_END;
 const int MAX_POOL_SIZE = 1e5;
 std::atomic<int> POOL_TOP {0};
 ull key_pool[MAX_POOL_SIZE];
+ull value_pool[MAX_POOL_SIZE * 5];
 int MODE = 1;
 
 DB* db = nullptr;
@@ -56,6 +57,7 @@ void* set_pure(void * id) {
 
     ull thread_id = (ull*)id - seed;
     Random rnd;
+    std::string value{};
 
     int cnt = PER_SET;
     while(cnt -- ) {
@@ -67,13 +69,22 @@ void* set_pure(void * id) {
 
         if((cnt & 0x0003)== 0) {
             auto off = POOL_TOP.fetch_add(2);
-            memcpy(key_pool + off, start, 16);           
+            memcpy(key_pool + off, start, 16); 
+            // memcpy(value_pool + off * 5 , start , 80);          
             // POOL_TOP += 2;
         }
 	    if(db->Set(data_key, data_value)!=Ok){
             is_correct = false;
             // perror("Set Correctness Failed.");
             // exit(0);
+        }
+        if(db->Get(data_key,&value) != Ok){
+            is_correct = false;
+        }
+        if(value != data_value.to_string()){
+            is_correct = false;
+            perror("get value incorrect.");
+            exit(0);
         }
     }
     return 0;
