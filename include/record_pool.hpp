@@ -84,7 +84,7 @@ public:
             return std::numeric_limits<std::size_t>::max();
         }
         else 
-            return index;
+            return index + bk * pool_bucket_size;
         // auto index = seq++;
         // return index >= N ? std::numeric_limits<std::size_t>::max() : index;
     }
