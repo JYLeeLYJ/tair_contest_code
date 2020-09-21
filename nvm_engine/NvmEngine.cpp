@@ -81,10 +81,10 @@ static std::atomic<uint64_t> tm_append{0};
 Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     static thread_local uint64_t cnt {0};
-    // static std::atomic<uint64_t> filter_miss_cnt{0};
+    static std::atomic<uint64_t> miss_cnt{0} , oom{0};
     static std::atomic<uint64_t> tm_find{0};
     if(unlikely((cnt ++ % LOG_FEQ) == 0)){
-        Logger::instance().log(fmt::format("total find time = {} us" , tm_find));
+        Logger::instance().log(fmt::format("total find time = {} us , find_cnt = {} , oom = {}" , tm_find , miss_cnt , oom));
     }
 
     std::string key_str = key.to_string();
@@ -92,9 +92,10 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
 
     Status sta = Ok;
 
-    //not found in bitset then emit find()
+    //confict : found in bitset then emit find()
     if(unlikely(bitset.test(hash_value % bitset.max_index))){
         // ++filter_miss_cnt;
+        ++miss_cnt;
         Record * rec = nullptr;
 
         {
@@ -109,12 +110,12 @@ Status NvmEngine::Set(const Slice& key, const Slice& value) {
             rec->update_value(value);  
         else {
             sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
-
         }
     }else{
         sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
     }
 
+    if(unlikely(sta == OutOfMemory)) ++oom;
     return sta;
 }
 

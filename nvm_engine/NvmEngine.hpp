@@ -21,7 +21,7 @@ class NvmEngine : DB {
     static constexpr size_t MAX_VALUE_SCLAE = ((uint64_t)72 * 1024 + 2016)  * 1024 * 1024 / sizeof(Record);
     #endif
 
-    static constexpr size_t BUCKET_LEN  = 4;
+    static constexpr size_t BUCKET_LEN  = 16;
     static constexpr size_t HASH_BUCKET_SIZE = VALUE_SCALE / BUCKET_LEN;
 public:
     static Status CreateOrOpen(const std::string& name, DB** dbptr);
