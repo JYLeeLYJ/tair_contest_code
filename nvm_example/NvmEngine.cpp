@@ -5,7 +5,7 @@
 
 #include <cassert>
 
-// #define USE_LIBPMEM
+#define USE_LIBPMEM
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     return NvmEngine::CreateOrOpen(name, dbptr);

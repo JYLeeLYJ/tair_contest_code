@@ -1,49 +1,58 @@
 #ifndef TAIR_CONTEST_KV_CONTEST_NVM_ENGINE_H_
 #define TAIR_CONTEST_KV_CONTEST_NVM_ENGINE_H_
 
-#include <unordered_map>
-#include <mutex>
+#include <atomic>
+#include <climits>
+#include <cstddef>
+#include <cstdlib>
+#include <iostream>
 #include <atomic>
 
 #include "include/db.hpp"
-#include "include/index_hasher.hpp"
-#include "include/record_pool.hpp"
-#include "include/boolean_filter.hpp"
 
 class NvmEngine : DB {
+public:
+    /**
+     * @param 
+     * name: file in AEP(exist)
+     * dbptr: pointer of db object
+     *
+     */
+    static Status CreateOrOpen(const std::string &name, DB **dbptr);
+    NvmEngine(const std::string &name);
+    Status Get(const Slice &key, std::string *value);
+    Status Set(const Slice &key, const Slice &value);
+    ~NvmEngine();
+
+private:
+    std::pair<uint32_t , uint32_t> search(const Slice & key , uint32_t hash);
+    bool append(const Slice & key , const Slice & value , uint32_t i);
+
+private:
+
+    struct entry_t {
+        char key[16];
+        char value[80];
+    };
+
     #ifdef LOCAL_TEST
-    static constexpr size_t VALUE_SCALE = 2 * 1024 * 1024 ;   //64K
-    static constexpr size_t FILTER_SCALE = VALUE_SCALE;
-    static constexpr size_t MAX_VALUE_SCLAE = VALUE_SCALE;
+    static const size_t NVM_SIZE = 2*1024*1024*sizeof(entry_t);
+    static const size_t DRAM_SIZE = 16 * 1024 * 1024;       //16M
     #else
-    static constexpr size_t VALUE_SCALE = 48 * 16 * 1024 * 1024; // 48M * 16 threads
-    static constexpr size_t FILTER_SCALE = 1024 * 1024 * 1024;
-    static constexpr size_t MAX_VALUE_SCLAE = ((uint64_t)72 * 1024 + 2016)  * 1024 * 1024 / sizeof(Record);
+    static const size_t NVM_SIZE = 79456894976;
+    static const size_t DRAM_SIZE = 4200000000;
     #endif
 
-    static constexpr size_t BUCKET_LEN  = 4;
-    static constexpr size_t HASH_BUCKET_SIZE = VALUE_SCALE / BUCKET_LEN;
-public:
-    static Status CreateOrOpen(const std::string& name, DB** dbptr);
-    Status Get(const Slice& key, std::string* value) override;
-    Status Set(const Slice& key, const Slice& value) override;
+    //load factor ~ 0.73
+    static const uint32_t ENTRY_MAX = NVM_SIZE / sizeof(entry_t);       //74G / 80 entries
+    static const uint32_t BUCKET_MAX = DRAM_SIZE / sizeof(std::atomic<uint32_t>);    //1G buckets
+    // static const uint32_t BUCKET_PER_MUTEX = 30000000;
+    // static const uint32_t MUTEX_CNT = BUCKET_MAX / BUCKET_PER_MUTEX + 1;    //140 mutex
 
-    explicit NvmEngine(const std::string & file_name);
-    ~NvmEngine() override;
-
-private:
-
-    Record * find(const std::string & key ,uint64_t hash_value) ;
-
-    bool append_new_value(const Slice & key , const Slice & value , uint64_t hash_value);
-
-private:
-    // use memory ~ 768M seems better 
-    bitmap_filter<VALUE_SCALE * 8> bitset{};
-    //use memory ~ 768M * 4 + 96M * 2 * 2 = 3GB
-    Hash<HASH_BUCKET_SIZE , BUCKET_LEN> hash_index{};
-    //O(1) space
-    record_pool<MAX_VALUE_SCLAE , 4> pool;
+    entry_t *entry{};
+    std::atomic<uint32_t> *bucket{};
+    std::atomic<uint32_t> entry_cnt {1};
+    // std::mutex slot_mut[MUTEX_CNT];
 };
 
 #endif

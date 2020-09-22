@@ -1,177 +1,138 @@
-#include <functional>
-#include <limits>
-
-#include <signal.h>
-
 #include "NvmEngine.hpp"
 #include "include/utils.hpp"
 #include "include/logger.hpp"
 #include "fmt/format.h"
 
-//=============== Logger usage =================================
-#ifdef LOCAL_TEST
-constexpr uint64_t LOG_FEQ = 1e3;   //10 k
-#else
-constexpr uint64_t LOG_FEQ = 2e6;   //10 m
-#endif
+#include <tuple>
 
-// std::atomic<uint64_t> find_cnt{0};
+#include <libpmem.h>
+#include <sys/mman.h>
 
-void catch_bus_error(int sig){
-    Logger::instance().sync_log("SIGBUS");
-    exit(1);
-}
+#include <cassert>
 
-void catch_segfault_error(int sig){
-    Logger::instance().sync_log("SIG_FAULT.");
-    Logger::instance().end_log();
-    exit(1);
-}
-
-inline const char * sta_to_string( const Status sta ){
-    if(sta == NotFound) return "NotFound";
-    else if(sta == OutOfMemory ) return "OutOfMemory";
-    else if(sta == IOError) return "IOError";
-    else return "Ok";
-}
-
-inline std::string to_int_string(const Slice & key){
-    return fmt::format("{}_{}" ,* reinterpret_cast<const uint64_t *>(key.data()) , * reinterpret_cast<const uint64_t *>(key.data() + 8));
-}
-
-//================================================================
-
-Status DB::CreateOrOpen(const std::string& name, DB** dbptr, FILE* log_file) {
-
-    Logger::set_file(log_file);
-    Logger::instance().sync_log("log start");
-
-    signal(SIGBUS  , catch_bus_error);
-    signal(SIGSEGV , catch_segfault_error);
-
+Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
+    Logger::instance().set_file(log_file);
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
 DB::~DB() {}
 
-Status NvmEngine::CreateOrOpen(const std::string& name, DB** dbptr) {
+Status NvmEngine::CreateOrOpen(const std::string &name, DB **dbptr) {
     *dbptr = new NvmEngine(name);
     return Ok;
 }
 
-Status NvmEngine::Get(const Slice& key, std::string* value) {
+NvmEngine::NvmEngine(const std::string &name) {
+    bucket = new std::atomic<uint32_t>[BUCKET_MAX]{};
+    // memset(bucket, 0, sizeof(uint32_t) * BUCKET_MAX);
+
+#ifdef USE_LIBPMEM
+    if ((entry = (entry_t *)(pmem_map_file(name.c_str(),
+                                          ENTRY_MAX * sizeof(entry_t),
+                                          PMEM_FILE_CREATE, 0666, nullptr,
+                                          nullptr))) == NULL) {
+        perror("Pmem map file failed");
+        exit(1);
+    }
+#else
+    if ((entry = (entry_t *)(mmap(NULL, ENTRY_MAX * sizeof(entry_t),
+                                 PROT_READ | PROT_WRITE,
+                                 MAP_ANON | MAP_SHARED, 0, 0))) == NULL) {
+        perror("mmap failed");
+        exit(1);
+    }
+#endif
+}
+
+Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     static bool flag{false};
-    if(!flag){
-        Logger::instance().log("******** Start Get *********** .");
+    if(unlikely(flag == false)){
         flag = true;
+        Logger::instance().log(fmt::format("*********** Start Get ***********"));
     }
 
-    std::string key_str = key.to_string();
-    uint64_t hash_value = std::hash<std::string>{}(key_str);
-    
-    auto * rec = find(key_str , hash_value);
-    if (rec)
-        *value = rec->value();
-    return Ok;
-}
+    uint32_t hash = std::hash<std::string>{}(key.to_string());
+    uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
 
-static std::atomic<uint64_t> tm_append{0};
+    std::tie(index , bucket_i) = search(key , hash);
 
-Status NvmEngine::Set(const Slice& key, const Slice& value) {
+    // Logger::instance().sync_log(fmt::format("found key = {} , value = {} , index = {} , bucket_i = {}" , key.to_string(), *value , index , bucket_i));
 
-    static thread_local uint64_t cnt {0};
-    static std::atomic<uint64_t> miss_cnt{0} , oom{0};
-    static std::atomic<uint64_t> tm_find{0};
-    if(unlikely((cnt ++ % LOG_FEQ) == 0)){
-        Logger::instance().log(fmt::format("total find time = {} us , find_cnt = {} , oom = {}" , tm_find , miss_cnt , oom));
-    }
-
-    std::string key_str = key.to_string();
-    uint64_t hash_value = std::hash<std::string>{}(key_str);
-
-    Status sta = Ok;
-
-    //confict : found in bitset then emit find()
-    if(unlikely(bitset.test(hash_value % bitset.max_index))){
-        // ++filter_miss_cnt;
-        ++miss_cnt;
-        Record * rec = nullptr;
-
-        {
-        auto beg = std::chrono::high_resolution_clock::now();
-        rec = find(key_str , hash_value);
-        auto end = std::chrono::high_resolution_clock::now();
-        
-        tm_find += std::chrono::duration_cast<std::chrono::microseconds>(end- beg).count();
-        }
-        
-        if(rec) 
-            rec->update_value(value);  
-        else {
-            sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
-        }
+    if(likely(index)){
+        value->assign(entry[index].value , 80);
+        return Ok;
     }else{
-        sta = append_new_value(key , value , hash_value) ? Ok : OutOfMemory;
+        return NotFound;
     }
-
-    if(unlikely(sta == OutOfMemory)) ++oom;
-    return sta;
 }
 
-Record * NvmEngine::find(const std::string & key , uint64_t hash_value) {
+Status NvmEngine::Set(const Slice &key, const Slice &value) {
+    uint32_t hash = std::hash<std::string>{}(key.to_string());
+    uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
+    std::tie(index , bucket_i) = search(key , hash);
+
+    //update
+    if(unlikely(index)){
+        memcpy(entry[index].value , value.data() , 80);
+        return Ok;
+    }
+    //insert
+    else if(likely(bucket_i != std::numeric_limits<uint32_t>::max())){
+        return append(key , value , bucket_i) ? Ok : OutOfMemory;
+    }
+    //oom
+    else{
+        return OutOfMemory;
+    }
+}
+
+std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint32_t hash){
+    hash %= BUCKET_MAX;
+
+    for (uint32_t i = 0; i < BUCKET_MAX ; i++) {
+        //not found .
+        if(bucket[hash] == 0)
+            return {0 , hash};
         
-    uint32_t i_bk =  hash_value % HASH_BUCKET_SIZE;
-    auto bk_pair = hash_index.get_bucket(i_bk) ;
-    auto & head = bk_pair.first;
-    auto & bk = bk_pair.second;
+        uint32_t index = bucket[hash];
+        auto & ele = entry[index];
 
-    //check recent vis;
-    uint8_t recent_i = head.recent_vis_index;
-    if(likely(recent_i != std::numeric_limits<uint8_t>::max())){
-        Record & recent_rec = pool.get_value(bk.indics[recent_i]);
-        if(fast_key_cmp_eq(recent_rec.key_data() , key.data())){
-            return &recent_rec;
-        }
+        //found
+        if (fast_key_cmp_eq(ele.key, key.data())) 
+            return {index , i};
+        
+        ++hash;
+        hash %= BUCKET_MAX;
     }
 
-    //linear search , from end to begin
-    auto cnt = head.value_cnt.load();
-    for (int i = cnt -1 ; i>=0  ; --i){
-        auto & rec = pool.get_value(bk.indics[i]);
-        if(fast_key_cmp_eq(rec.key_data() , key.data())){
-            head.recent_vis_index = i;
-            return &rec;
-        }
-    }
-
-    //not found result
-    return nullptr;
+    //full bucket and not found
+    return {0, std::numeric_limits<uint32_t>::max()};
 }
 
-bool NvmEngine::append_new_value(const Slice & key , const Slice & value , uint64_t hash_value){
-    uint32_t i_bk = hash_value % HASH_BUCKET_SIZE;
-
-    auto index = pool.allocate_seq(hash_value);
-    if(unlikely(!pool.is_valid_index(index))) {
+bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i){
+    //allocated index 
+    uint32_t index = entry_cnt ++ ;
+    //oom , full entry pool
+    if(unlikely(index >= ENTRY_MAX))
         return false;
+
+    for (uint32_t cnt = 0 ; cnt < BUCKET_MAX ; ++cnt ){
+        auto & atm_ui = bucket[i];
+
+        uint32_t empty_val {0};
+        if(atm_ui.compare_exchange_weak(empty_val, index , std::memory_order_release ,std::memory_order_relaxed)){
+            //write entry
+            memcpy(entry[index].key , key.data() , 16);
+            memcpy(entry[index].value , value.data() , 80);
+            return true;
+        }
+        
+        ++i;
+        i %= BUCKET_MAX;
     }
-    
-    if(unlikely(!hash_index.append(i_bk ,index))){
-        return false;
-    }
-    
-    pool.set_value(index , key , value);
-    bitset.set(hash_value % bitset.max_index);
-    return true;
+    //oom , full bucket
+    return false;
 }
 
-NvmEngine::NvmEngine(const std::string & file_name)
-:pool(file_name) {
-    Logger::instance().sync_log(fmt::format("hash bucket len = {}" , hash_index.bk_len));
-    Logger::instance().sync_log("NvmEngine init\n*******************************");
-}
-
-NvmEngine::~NvmEngine() {
-    Logger::instance().end_log();
-}
+NvmEngine::~NvmEngine() {}

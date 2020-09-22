@@ -11,7 +11,7 @@
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)
 
-std::chrono::milliseconds operator "" _ms (unsigned long long ms){
+inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
     return std::chrono::milliseconds{ms};
 }
 

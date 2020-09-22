@@ -1,7 +1,8 @@
 #include <iostream>
 #include <string>
-#include "fmt/format.h"
 
+#include "fmt/format.h"
+#include "include/db.hpp"
 #include "boolean_filter.hpp"
 
 #define MAIN(func) \
@@ -21,6 +22,52 @@
 
 #define ASSERT( cond ) \
     if(!(cond)) throw fmt::format("[FAIL][{}] : ASSERT {} " ,__FUNCTION__ , #cond );
+
+//********************************************************************************
+
+void test_get_set_simple() {
+
+    auto random_str = [](unsigned int size)->char * {
+        char *str = (char *)malloc(size + 1);
+        for (unsigned int i = 0; i < size; i++) {
+            switch (rand() % 3) {
+            case 0:
+                str[i] = rand() % 10 + '0';
+                break;
+            case 1:
+                str[i] = rand() % 26 + 'A';
+                break;
+            case 2:
+                str[i] = rand() % 26 + 'a';
+                break;
+            default:
+                break;
+            }
+        }
+        str[size] = 0;
+
+        return str;
+    };
+
+    DB *db = nullptr;
+    FILE * f = fopen("./performance.log" , "w");
+    DB::CreateOrOpen("./DB", &db , f);
+    Slice k;
+    k.size() = 16;
+    Slice v;
+    v.size() = 80;
+    int times = 100;
+    while (times--) {
+        k.data() = random_str(16);
+        v.data() = random_str(80);
+        ASSERT(db->Set(k, v) == Ok);
+        std::string a;
+        ASSERT(db->Get(k, &a) == Ok);
+        ASSERT(a == v.to_string());
+        free(k.data());
+        free(v.data());
+    }
+}
 
 void test_boolean_filter(){
     bitmap_filter<34> bitset{};
@@ -52,6 +99,7 @@ void test_fast_key_cmp(){
 }
 
 void main_test_func(){
+    TEST(test_get_set_simple);
     TEST(test_boolean_filter);
     TEST(test_fast_key_cmp);
 }

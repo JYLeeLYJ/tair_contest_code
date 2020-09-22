@@ -1,6 +1,6 @@
 CLEAN_FILES = # deliberately empty, so we can append below.
 CXX=g++
-PLATFORM_LDFLAGS= -lpthread -lrt -pmem -lpmemobj
+PLATFORM_LDFLAGS= -lpthread -lrt -lpmem -lpmemobj
 PLATFORM_CXXFLAGS= -std=c++11
 PROFILING_FLAGS=-pg
 OPT=
@@ -43,6 +43,7 @@ endif
 
 # for fmt header-only usage
 OPT += -DFMT_HEADER_ONLY
+OPT += -DUSE_LIBPMEM
 
 # ----------------------------------------------
 SRC_PATH = $(CURDIR)

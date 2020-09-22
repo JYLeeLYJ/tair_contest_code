@@ -112,7 +112,7 @@ $(LIBRARY):
 	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR) 
 
 base: 
-	$(AM_V_at)make -C $(BASE_SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR)
+	$(AM_V_at)make -C $(BASE_SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR) test
 
 clean:
 	make -C $(SUB_PATH)  LIBOUTPUT=$(LIBOUTPUT) clean
@@ -130,6 +130,7 @@ test:
 	make -C ./test test
 
 unit:
+	$(AM_V_at)make -C $(SUB_PATH) DEBUG_LEVEL=$(DEBUG_LEVEL) LIBOUTPUT=$(LIBOUTPUT) EXEC_DIR=$(CURDIR) test
 	make -C ./test unit_test
 
 bench:
