@@ -9,6 +9,7 @@
 #include <atomic>
 
 #include "include/db.hpp"
+#include "include/boolean_filter.hpp"
 
 class NvmEngine : DB {
 public:
@@ -25,8 +26,10 @@ public:
     ~NvmEngine();
 
 private:
-    std::pair<uint32_t , uint32_t> search(const Slice & key , uint32_t hash);
+    std::pair<uint32_t , uint32_t> search(const Slice & key , uint64_t hash);
     bool append(const Slice & key , const Slice & value , uint32_t i);
+    uint32_t allocated_index(uint32_t hash);
+
 
 private:
 
@@ -36,23 +39,26 @@ private:
     };
 
     #ifdef LOCAL_TEST
-    static const size_t NVM_SIZE = 2*1024*1024*sizeof(entry_t);
-    static const size_t DRAM_SIZE = 16 * 1024 * 1024;       //16M
+    static constexpr size_t NVM_SIZE = 2*1024*1024*sizeof(entry_t);
+    static constexpr size_t DRAM_SIZE = 16 * 1024 * 1024;       //16M
+    static constexpr size_t FILTER_SIZE = 1 * 1024 * 1024;
     #else
-    static const size_t NVM_SIZE = 79456894976;
-    static const size_t DRAM_SIZE = 4200000000;
+    static constexpr size_t NVM_SIZE = 79456894976;
+    static constexpr size_t DRAM_SIZE = 4200000000;
+    static constexpr size_t FILTER_SIZE = 256 * 1024 * 1024 * 8;
     #endif
 
+
     //load factor ~ 0.73
-    static const uint32_t ENTRY_MAX = NVM_SIZE / sizeof(entry_t);       //74G / 80 entries
-    static const uint32_t BUCKET_MAX = DRAM_SIZE / sizeof(std::atomic<uint32_t>);    //1G buckets
-    // static const uint32_t BUCKET_PER_MUTEX = 30000000;
-    // static const uint32_t MUTEX_CNT = BUCKET_MAX / BUCKET_PER_MUTEX + 1;    //140 mutex
+    static constexpr uint32_t ENTRY_MAX = NVM_SIZE / sizeof(entry_t);       //74G / 80 entries
+    static constexpr uint32_t BUCKET_MAX = DRAM_SIZE / sizeof(std::atomic<uint32_t>);    //1G buckets
 
     entry_t *entry{};
     std::atomic<uint32_t> *bucket{};
     std::atomic<uint32_t> entry_cnt {1};
-    // std::mutex slot_mut[MUTEX_CNT];
+
+    //256M
+    bitmap_filter<FILTER_SIZE> bitset{};
 };
 
 #endif

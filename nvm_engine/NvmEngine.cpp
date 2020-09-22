@@ -12,6 +12,7 @@
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     Logger::instance().set_file(log_file);
+    Logger::instance().sync_log(name);
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
@@ -52,12 +53,10 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
         Logger::instance().log(fmt::format("*********** Start Get ***********"));
     }
 
-    uint32_t hash = std::hash<std::string>{}(key.to_string());
+    uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
 
     std::tie(index , bucket_i) = search(key , hash);
-
-    // Logger::instance().sync_log(fmt::format("found key = {} , value = {} , index = {} , bucket_i = {}" , key.to_string(), *value , index , bucket_i));
 
     if(likely(index)){
         value->assign(entry[index].value , 80);
@@ -68,9 +67,13 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
 }
 
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
-    uint32_t hash = std::hash<std::string>{}(key.to_string());
-    uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
-    std::tie(index , bucket_i) = search(key , hash);
+    uint64_t hash = std::hash<std::string>{}(key.to_string());
+    uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
+
+    if(unlikely(bitset.test(hash % bitset.max_index)))
+        std::tie(index , bucket_id) = search(key , hash);
+    else 
+        bucket_id = hash % BUCKET_MAX;
 
     //update
     if(unlikely(index)){
@@ -78,8 +81,12 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
         return Ok;
     }
     //insert
-    else if(likely(bucket_i != std::numeric_limits<uint32_t>::max())){
-        return append(key , value , bucket_i) ? Ok : OutOfMemory;
+    else if(likely(bucket_id != std::numeric_limits<uint32_t>::max())){
+        if(append(key , value , bucket_id)){
+            bitset.set(hash % bitset.max_index);
+            return Ok;
+        }else
+            return OutOfMemory;
     }
     //oom
     else{
@@ -87,23 +94,21 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     }
 }
 
-std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint32_t hash){
-    hash %= BUCKET_MAX;
-
-    for (uint32_t i = 0; i < BUCKET_MAX ; i++) {
-        //not found .
-        if(bucket[hash] == 0)
-            return {0 , hash};
+std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash){
+    for (uint32_t i = 0 , bucket_id = hash % BUCKET_MAX; i < BUCKET_MAX ; i++) {
+        //not found
+        if(bucket[bucket_id] == 0)
+            return {0 , bucket_id};
         
-        uint32_t index = bucket[hash];
+        uint32_t index = bucket[bucket_id];
         auto & ele = entry[index];
 
         //found
         if (fast_key_cmp_eq(ele.key, key.data())) 
             return {index , i};
         
-        ++hash;
-        hash %= BUCKET_MAX;
+        ++bucket_id;
+        bucket_id %= BUCKET_MAX;
     }
 
     //full bucket and not found
