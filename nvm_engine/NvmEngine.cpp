@@ -12,7 +12,6 @@
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     Logger::instance().set_file(log_file);
-    Logger::instance().sync_log(name);
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
@@ -43,6 +42,8 @@ NvmEngine::NvmEngine(const std::string &name) {
         exit(1);
     }
 #endif
+    Logger::instance().sync_log(name);
+    Logger::instance().sync_log("*************************");
 }
 
 Status NvmEngine::Get(const Slice &key, std::string *value) {
@@ -66,13 +67,21 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
     }
 }
 
+std::atomic<uint64_t> append_tm {0} , search_tm{0};
+
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
+
+    static thread_local uint32_t cnt{0};
+    if(unlikely(cnt ++ % 5000000 == 0))
+        Logger::instance().log(fmt::format("append_time = {} , search in set = {}" , append_tm , search_tm));
+
     uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
 
-    if(unlikely(bitset.test(hash % bitset.max_index)))
+    if(unlikely(bitset.test(hash % bitset.max_index))){
+        time_elasped<std::chrono::microseconds> tm{search_tm};
         std::tie(index , bucket_id) = search(key , hash);
-    else 
+    }else 
         bucket_id = hash % BUCKET_MAX;
 
     //update
@@ -82,8 +91,9 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     }
     //insert
     else if(likely(bucket_id != std::numeric_limits<uint32_t>::max())){
+        time_elasped<std::chrono::microseconds> tm{search_tm}; 
         if(append(key , value , bucket_id)){
-            bitset.set(hash % bitset.max_index);
+            // bitset.set(hash % bitset.max_index);
             return Ok;
         }else
             return OutOfMemory;

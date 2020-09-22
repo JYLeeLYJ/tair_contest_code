@@ -45,7 +45,7 @@ private:
     #else
     static constexpr size_t NVM_SIZE = 79456894976;
     static constexpr size_t DRAM_SIZE = 4200000000;
-    static constexpr size_t FILTER_SIZE = 256 * 1024 * 1024 * 8;
+    static constexpr size_t FILTER_SIZE = 256ULL * 1024 * 1024 * 8;
     #endif
 
 
