@@ -91,9 +91,9 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     }
     //insert
     else if(likely(bucket_id != std::numeric_limits<uint32_t>::max())){
-        time_elasped<std::chrono::microseconds> tm{search_tm}; 
+        time_elasped<std::chrono::microseconds> tm{append_tm}; 
         if(append(key , value , bucket_id)){
-            // bitset.set(hash % bitset.max_index);
+            bitset.set(hash % bitset.max_index);
             return Ok;
         }else
             return OutOfMemory;
