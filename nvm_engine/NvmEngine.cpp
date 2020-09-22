@@ -67,33 +67,36 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
     }
 }
 
-std::atomic<uint64_t> append_tm {0} , search_tm{0};
+static thread_local uint64_t append_tm{0} , search_tm{0} , hash_tm{0} , update_tm{0};
 
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     static thread_local uint32_t cnt{0};
     if(unlikely(cnt ++ % 5000000 == 0))
-        Logger::instance().log(fmt::format("append_time = {} , search in set = {}" , append_tm , search_tm));
+        Logger::instance().log(fmt::format("append_time = {} , search_time in set = {} , hash_tm = {} , update_tm = {} " , append_tm , search_tm , hash_tm ,update_tm));
 
-    uint64_t hash = std::hash<std::string>{}(key.to_string());
+    uint64_t hash {0} ;
+    {
+        time_elasped<std::chrono::microseconds> tm{hash_tm};
+        hash = std::hash<std::string>{}(key.to_string());
+    }
     uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
 
-    if(unlikely(bitset.test(hash % bitset.max_index))){
-        time_elasped<std::chrono::microseconds> tm{search_tm};
+    // if(unlikely(bitset.test(hash % bitset.max_index))){
         std::tie(index , bucket_id) = search(key , hash);
-    }else 
-        bucket_id = hash % BUCKET_MAX;
+    // }else 
+        // bucket_id = hash % BUCKET_MAX;
 
     //update
     if(unlikely(index)){
+        time_elasped<std::chrono::microseconds> tm{update_tm};
         memcpy(entry[index].value , value.data() , 80);
         return Ok;
     }
     //insert
     else if(likely(bucket_id != std::numeric_limits<uint32_t>::max())){
-        time_elasped<std::chrono::microseconds> tm{append_tm}; 
         if(append(key , value , bucket_id)){
-            bitset.set(hash % bitset.max_index);
+            // bitset.set(hash % bitset.max_index);
             return Ok;
         }else
             return OutOfMemory;
@@ -105,6 +108,8 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 }
 
 std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash){
+    time_elasped<std::chrono::microseconds> tm{search_tm};
+
     for (uint32_t i = 0 , bucket_id = hash % BUCKET_MAX; i < BUCKET_MAX ; i++) {
         //not found
         if(bucket[bucket_id] == 0)
@@ -126,6 +131,8 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash
 }
 
 bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i){
+    time_elasped<std::chrono::microseconds> tm{append_tm}; 
+
     //allocated index 
     uint32_t index = entry_cnt ++ ;
     //oom , full entry pool

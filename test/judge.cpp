@@ -78,16 +78,6 @@ void* set_pure(void * id) {
             perror("Set Correctness Failed.");
             exit(0);
         }
-        if(db->Get(data_key,&value) != Ok){
-            is_correct = false;
-            perror("get status incorrect.");
-            exit(0);
-        }
-        if(value != data_value.to_string()){
-            is_correct = false;
-            perror("get value incorrect.");
-            exit(0);
-        }
     }
     return 0;
 }

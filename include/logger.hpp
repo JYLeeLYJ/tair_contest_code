@@ -110,17 +110,17 @@ class time_elasped{
     using time_point_t = decltype(std::chrono::high_resolution_clock::now());
 
 public:
-    explicit time_elasped(std::atomic<uint64_t> & tm_cnt)
+    explicit time_elasped(uint64_t & tm_cnt)
     :_tm(tm_cnt) , _beg(std::chrono::high_resolution_clock::now())
     {}
 
     ~time_elasped() noexcept{
         auto _end = std::chrono::high_resolution_clock::now();
-        _tm += std::chrono::duration_cast<tm_unit_t>(_end - _beg).count();
+        _tm+=std::chrono::duration_cast<tm_unit_t>(_end - _beg).count();
     }
 
 private:
-    std::atomic<uint64_t> & _tm;
+    uint64_t & _tm;
     time_point_t _beg;
 };
 #endif

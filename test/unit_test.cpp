@@ -98,10 +98,15 @@ void test_fast_key_cmp(){
     ASSERT(!fast_key_cmp_eq(s1.data() , s4.data()));
 }
 
+void test_align_atomic_uint64(){
+    static_assert(sizeof(align_atomic_uint64_t) == 64 , "error size");
+}
+
 void main_test_func(){
     TEST(test_get_set_simple);
     TEST(test_boolean_filter);
     TEST(test_fast_key_cmp);
+    TEST(test_align_atomic_uint64);
 }
 
 int main(){
