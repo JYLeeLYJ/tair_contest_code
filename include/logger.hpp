@@ -116,7 +116,7 @@ public:
 
     ~time_elasped() noexcept{
         auto _end = std::chrono::high_resolution_clock::now();
-        _tm+=std::chrono::duration_cast<tm_unit_t>(_end - _beg).count();
+        _tm += std::chrono::duration_cast<tm_unit_t>(_end - _beg).count();
     }
 
 private:

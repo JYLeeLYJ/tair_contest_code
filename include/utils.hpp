@@ -2,7 +2,6 @@
 #ifndef UTILS_INCLUDE_H
 #define UTILS_INCLUDE_H
 
-#include <atomic>
 #include <chrono>
 #include <type_traits>
 // #include <immintrin.h>
@@ -11,6 +10,10 @@
 
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)
+
+inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
+    return std::chrono::milliseconds{ms};
+}
 
 struct disable_copy{
     disable_copy() = default;
@@ -28,18 +31,6 @@ struct ref_pair{
         
     }
 };
-
-struct alignas(64) align_atomic_uint64_t : std::atomic<uint64_t>{
-    explicit align_atomic_uint64_t() noexcept : std::atomic<uint64_t>(0){}
-
-    uint64_t operator = (uint64_t i) noexcept {
-        return std::atomic<uint64_t>::operator=(i);
-    }
-};
-
-inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
-    return std::chrono::milliseconds{ms};
-}
 
 inline bool fast_key_cmp_eq(const char * lhs , const char * rhs){
     using pcu64_t = const uint64_t *;
