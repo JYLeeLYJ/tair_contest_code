@@ -98,10 +98,28 @@ void test_fast_key_cmp(){
     ASSERT(!fast_key_cmp_eq(s1.data() , s4.data()));
 }
 
+void test_fast_mem_cpy(){
+    std::array<char , 16> key{};
+    std::array<char , 80> value{};
+
+    std::string str16(16 , 'a');
+    std::string str80(80 , 'b');
+
+    fast_align_mem_cpy_16(key.data() , str16.data());
+    fast_align_mem_cpy_80(value.data() , str80.data());
+
+    // fmt::print("key {} , value {}\n" , str16 , str80);
+    // fmt::print("key {} , value {}\n" , std::string(key.data() , 16) , std::string(value.data() , 80));
+
+    ASSERT(std::string(key.data() , 16) == str16);
+    ASSERT(std::string(value.data(),80) == str80);
+}
+
 void main_test_func(){
     TEST(test_get_set_simple);
     TEST(test_boolean_filter);
     TEST(test_fast_key_cmp);
+    TEST(test_fast_mem_cpy);
 }
 
 int main(){

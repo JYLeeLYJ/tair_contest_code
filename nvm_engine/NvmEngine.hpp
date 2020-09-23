@@ -45,7 +45,7 @@ private:
     #else
     static constexpr size_t NVM_SIZE = 79456894976;
     static constexpr size_t DRAM_SIZE = 4200000000;
-    static constexpr size_t FILTER_SIZE = 360ULL * 1024 * 1024 * 8;
+    static constexpr size_t FILTER_SIZE = 256ULL * 1024 * 1024 * 8;
     #endif
 
 
@@ -55,7 +55,7 @@ private:
 
     entry_t *entry{};
     std::atomic<uint32_t> *bucket{};
-    std::atomic<uint32_t> entry_cnt {1};
+    alignas(64) std::atomic<uint32_t> entry_cnt {1};
 
     //256M
     bitmap_filter<FILTER_SIZE> bitset{};
