@@ -80,7 +80,7 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
 
     if(unlikely(bitset.test(hash % bitset.max_index))){
-        // time_elasped<std::chrono::nanoseconds> tm{search_tm};
+        time_elasped<std::chrono::nanoseconds> tm{search_tm};
         std::tie(index , bucket_id) = search(key , hash);
     }else 
         bucket_id = hash % BUCKET_MAX;
@@ -92,7 +92,7 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     }
     //insert
     else if(likely(bucket_id != std::numeric_limits<uint32_t>::max())){
-        // time_elasped<std::chrono::nanoseconds> tm{append_tm}; 
+        time_elasped<std::chrono::nanoseconds> tm{append_tm}; 
         if(append(key , value , bucket_id)){
             bitset.set(hash % bitset.max_index);
             return Ok;
@@ -115,7 +115,7 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash
         auto & ele = entry[index];
 
         //found
-        if (memcmp(ele.key, key.data(),16)) 
+        if (memcmp(ele.key, key.data(),16)==0) 
             return {index , i};
         
         ++bucket_id;
