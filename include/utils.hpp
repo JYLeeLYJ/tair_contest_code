@@ -4,16 +4,12 @@
 
 #include <chrono>
 #include <type_traits>
-// #include <immintrin.h>
+#include <immintrin.h>
 
 #define UNUSED(x) (void)x
 
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)
-
-inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
-    return std::chrono::milliseconds{ms};
-}
 
 struct disable_copy{
     disable_copy() = default;
@@ -32,27 +28,59 @@ struct ref_pair{
     }
 };
 
-inline bool fast_key_cmp_eq(const char * lhs , const char * rhs){
+struct alignas(64) atomic_uint_align64_t : std::atomic<uint32_t>{
+	atomic_uint_align64_t() = default;	
+	explicit atomic_uint_align64_t (uint32_t i) : std::atomic<uint32_t>(i){}
+
+	uint32_t operator = (uint32_t i) {
+		return std::atomic<uint32_t>::operator=(i);
+	}
+};
+
+inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
+    return std::chrono::milliseconds{ms};
+}
+
+static inline bool fast_key_cmp_eq(const char * lhs , const char * rhs){
     using pcu64_t = const uint64_t *;
     return *((pcu64_t)(lhs)) == *((pcu64_t)(rhs)) && *((pcu64_t)(lhs)+1) == *((pcu64_t)(rhs)+1) ;
 }
 
-inline void fast_align_mem_cpy_16(char * dst , const char * src){
-    *(uint64_t *)(dst) = *(uint64_t *)(src);    //1   
-    *(uint64_t *)(dst+8) = *(uint64_t *)(src+8);    //2
+static inline void memcpy_avx_16(void *dst, const void *src) {
+#if 1
+	__m128i m0 = _mm_loadu_si128(((const __m128i*)src) + 0);
+	_mm_storeu_si128(((__m128i*)dst) + 0, m0);
+#else
+	*((uint64_t*)((char*)dst + 0)) = *((uint64_t*)((const char*)src + 0));
+	*((uint64_t*)((char*)dst + 8)) = *((uint64_t*)((const char*)src + 8));
+#endif
 }
 
-inline void fast_align_mem_cpy_80(char * dst , const char * src){
-    *(uint64_t *)(dst) = *(uint64_t *)(src);    //1   
-    *(uint64_t *)(dst+8) = *(uint64_t *)(src+8);    //2
-    *(uint64_t *)(dst+16) = *(uint64_t *)(src+16);    //3
-    *(uint64_t *)(dst+24) = *(uint64_t *)(src+24);    //4
-    *(uint64_t *)(dst+32) = *(uint64_t *)(src+32);    //5
-    *(uint64_t *)(dst+40) = *(uint64_t *)(src+40);    
-    *(uint64_t *)(dst+48) = *(uint64_t *)(src+48);    //7
-    *(uint64_t *)(dst+56) = *(uint64_t *)(src+56);    
-    *(uint64_t *)(dst+64) = *(uint64_t *)(src+64);    //9
-    *(uint64_t *)(dst+72) = *(uint64_t *)(src+72);    
+static inline void memcpy_avx_32(void *dst, const void *src) {
+	__m256i m0 = _mm256_loadu_si256(((const __m256i*)src) + 0);
+	_mm256_storeu_si256(((__m256i*)dst) + 0, m0);
 }
 
+static inline void memcpy_avx_64(void *dst, const void *src) {
+	__m256i m0 = _mm256_loadu_si256(((const __m256i*)src) + 0);
+	__m256i m1 = _mm256_loadu_si256(((const __m256i*)src) + 1);
+	_mm256_storeu_si256(((__m256i*)dst) + 0, m0);
+	_mm256_storeu_si256(((__m256i*)dst) + 1, m1);
+}
+
+static inline void memcpy_avx_80(void * dst , const void * src){
+    memcpy_avx_16(dst , src);
+    memcpy_avx_64((char*)dst + 16 , (char*)src + 16);
+}
+
+static inline void memcpy_avx_128(void *dst, const void *src) {
+	__m256i m0 = _mm256_loadu_si256(((const __m256i*)src) + 0);
+	__m256i m1 = _mm256_loadu_si256(((const __m256i*)src) + 1);
+	__m256i m2 = _mm256_loadu_si256(((const __m256i*)src) + 2);
+	__m256i m3 = _mm256_loadu_si256(((const __m256i*)src) + 3);
+	_mm256_storeu_si256(((__m256i*)dst) + 0, m0);
+	_mm256_storeu_si256(((__m256i*)dst) + 1, m1);
+	_mm256_storeu_si256(((__m256i*)dst) + 2, m2);
+	_mm256_storeu_si256(((__m256i*)dst) + 3, m3);
+}
 #endif
