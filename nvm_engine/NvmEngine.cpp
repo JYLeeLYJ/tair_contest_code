@@ -23,6 +23,9 @@ Status NvmEngine::CreateOrOpen(const std::string &name, DB **dbptr) {
 }
 
 NvmEngine::NvmEngine(const std::string &name) {
+    for(auto & seq : entry_seq)
+        seq = 1;
+
     bucket = new std::atomic<uint32_t>[BUCKET_MAX]{};
     // memset(bucket, 0, sizeof(uint32_t) * BUCKET_MAX);
 
@@ -67,14 +70,16 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
     }
 }
 
-static thread_local uint64_t total_set_tm{0},append_tm {0} , search_tm{0};
+static thread_local uint64_t total_set_tm{0},append_tm {0} , search_tm{0} , write_tm{0} , setindex_tm{0};
 
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     time_elasped<std::chrono::nanoseconds> set_tm{total_set_tm};
     static thread_local uint32_t cnt{0};
     if(unlikely(cnt ++ % 5000000 == 0))
-        Logger::instance().log(fmt::format("set time = {} ,append_time = {} , search in set = {}" , total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000));
+        Logger::instance().log(
+            fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {}" ,
+            total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000));
 
     uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
@@ -87,13 +92,13 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     //update
     if(unlikely(index)){
-        fast_align_mem_cpy_80(entry[index].value , value.data());
+        memcpy_avx_80(entry[index].value , value.data());
         return Ok;
     }
     //insert
     else if(likely(bucket_id != std::numeric_limits<uint32_t>::max())){
         time_elasped<std::chrono::nanoseconds> tm{append_tm}; 
-        if(append(key , value , bucket_id)){
+        if(append(key , value , bucket_id , hash)){
             bitset.set(hash % bitset.max_index);
             return Ok;
         }else
@@ -115,7 +120,7 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash
         auto & ele = entry[index];
 
         //found
-        if (memcmp(ele.key, key.data(),16)==0) 
+        if (fast_key_cmp_eq(ele.key, key.data()))
             return {index , i};
         
         ++bucket_id;
@@ -126,15 +131,17 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash
     return {0, std::numeric_limits<uint32_t>::max()};
 }
 
-bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i){
+bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uint64_t hash){
     //allocated index 
-    uint32_t index = entry_cnt ++ ;
+    uint32_t index = allocate_index(hash);
     //oom , full entry pool
-    if(unlikely(index >= ENTRY_MAX))
+    if(unlikely(!is_valid_index(index)))
         return false;
 
     //write index
     uint32_t cnt = 0 ;
+    // {
+    // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
     for (; cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
         if(bucket[i]) continue;
 
@@ -146,15 +153,24 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i){
             std::memory_order_relaxed))
             break;
     }
-
+    // }
     //oom
     if(unlikely(cnt == BUCKET_MAX))
         return false;
 
+    // time_elasped<std::chrono::nanoseconds> tm{write_tm};
+
     //write
-    fast_align_mem_cpy_16(entry[index].key , key.data());
-    fast_align_mem_cpy_80(entry[index].value , value.data());
+    memcpy_avx_16(entry[index].key , key.data());
+    memcpy_avx_80(entry[index].value , value.data());
+
     return true;
+}
+
+uint32_t NvmEngine::allocate_index(uint64_t hash){
+    uint32_t ibk = hash % WRITE_BUCKET;
+    uint32_t index = entry_seq[ibk] ++ ;
+    return index < ENTRY_PER_BUCKET ? index + ibk * ENTRY_PER_BUCKET : 0 ;
 }
 
 NvmEngine::~NvmEngine() {}

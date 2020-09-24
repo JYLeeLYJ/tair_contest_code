@@ -27,9 +27,9 @@ public:
 
 private:
     std::pair<uint32_t , uint32_t> search(const Slice & key , uint64_t hash);
-    bool append(const Slice & key , const Slice & value , uint32_t i);
-    uint32_t allocated_index(uint32_t hash);
-
+    bool append(const Slice & key , const Slice & value , uint32_t i , uint64_t hash);
+    uint32_t allocate_index(uint64_t hash);
+    inline bool is_valid_index(uint32_t i) {    return i && i < BUCKET_MAX; }
 
 private:
 
@@ -48,17 +48,20 @@ private:
     static constexpr size_t FILTER_SIZE = 256ULL * 1024 * 1024 * 8;
     #endif
 
-
     //load factor ~ 0.73
     static constexpr uint32_t ENTRY_MAX = NVM_SIZE / sizeof(entry_t);       //74G / 80 entries
     static constexpr uint32_t BUCKET_MAX = DRAM_SIZE / sizeof(std::atomic<uint32_t>);    //1G buckets
+    static constexpr uint32_t WRITE_BUCKET = 16;
+    static constexpr uint32_t ENTRY_PER_BUCKET = ENTRY_MAX / WRITE_BUCKET;
 
     entry_t *entry{};
     std::atomic<uint32_t> *bucket{};
-    alignas(64) std::atomic<uint32_t> entry_cnt {1};
-
+    
+    std::array<atomic_uint_align64_t , WRITE_BUCKET> entry_seq{};
     //256M
     bitmap_filter<FILTER_SIZE> bitset{};
+
+    static_assert(sizeof(entry_seq) == 64 * WRITE_BUCKET , "error align");
 };
 
 #endif
