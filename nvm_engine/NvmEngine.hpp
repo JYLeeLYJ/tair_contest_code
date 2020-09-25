@@ -32,7 +32,7 @@ private:
 private:
 
     uint32_t allocate_index(uint32_t bucket_id){
-        auto index = ++ entry_seq[bucket_id];
+        uint32_t index = ++entry_seq[bucket_id];
         return index < ENTRY_PER_BUCKET ? index + bucket_id * ENTRY_PER_BUCKET : 0;
     }
     bool is_valid_index(uint32_t i) {
@@ -42,7 +42,7 @@ private:
         return (thread_seq ++ ) % WRITE_BUCKET;
     }
 
-private:
+private:/* static definition */
 
     struct entry_t {
         char key[16];
@@ -65,15 +65,19 @@ private:
     static constexpr uint32_t WRITE_BUCKET = 16;
     static constexpr uint32_t ENTRY_PER_BUCKET = ENTRY_MAX / WRITE_BUCKET;
 
+private: /* data members */
+
     entry_t *entry{};
     std::atomic<uint32_t> *bucket{};
     
-    std::array<atomic_uint_align64_t , WRITE_BUCKET> entry_seq{};
+    std::array<align_intergral_t<uint32_t , CACHELINE_SIZE>, WRITE_BUCKET> entry_seq{};
     std::atomic<uint32_t> thread_seq{0};
     //256M
     bitmap_filter<FILTER_SIZE> bitset{};
 
-    static_assert(sizeof(entry_seq) == 64 * WRITE_BUCKET , "error align");
+private: /* static asserts */
+
+    static_assert(sizeof(entry_seq) == CACHELINE_SIZE * WRITE_BUCKET , "error align");
 };
 
 #endif

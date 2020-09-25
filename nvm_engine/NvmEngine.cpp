@@ -23,13 +23,10 @@ Status NvmEngine::CreateOrOpen(const std::string &name, DB **dbptr) {
 }
 
 NvmEngine::NvmEngine(const std::string &name) {
-    for(auto & seq : entry_seq)
-        seq = 1;
 
     bucket = new std::atomic<uint32_t>[BUCKET_MAX]{};
     // memset(bucket, 0, sizeof(uint32_t) * BUCKET_MAX);
 
-#ifdef USE_LIBPMEM
     if ((entry = (entry_t *)(pmem_map_file(name.c_str(),
                                           ENTRY_MAX * sizeof(entry_t),
                                           PMEM_FILE_CREATE, 0666, nullptr,
@@ -37,14 +34,6 @@ NvmEngine::NvmEngine(const std::string &name) {
         perror("Pmem map file failed");
         exit(1);
     }
-#else
-    if ((entry = (entry_t *)(mmap(NULL, ENTRY_MAX * sizeof(entry_t),
-                                 PROT_READ | PROT_WRITE,
-                                 MAP_ANON | MAP_SHARED, 0, 0))) == NULL) {
-        perror("mmap failed");
-        exit(1);
-    }
-#endif
     Logger::instance().sync_log(name);
     Logger::instance().sync_log("*************************");
 }

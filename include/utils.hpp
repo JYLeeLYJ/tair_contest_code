@@ -6,6 +6,8 @@
 #include <type_traits>
 #include <immintrin.h>
 
+#define CACHELINE_SIZE 64
+
 #define UNUSED(x) (void)x
 
 #define likely(x)      __builtin_expect(!!(x), 1)
@@ -17,17 +19,6 @@ struct disable_copy{
     disable_copy& operator= (const disable_copy &) = delete;
 };
 
-template<class T1 , class T2>
-struct ref_pair{
-    T1 & first;
-    T2 & second;
-
-    explicit ref_pair(T1 & p1 , T2 & p2)
-    :first(p1) , second(p2){
-        
-    }
-};
-
 struct alignas(64) atomic_uint_align64_t : std::atomic<uint32_t>{
 	atomic_uint_align64_t() = default;	
 	explicit atomic_uint_align64_t (uint32_t i) : std::atomic<uint32_t>(i){}
@@ -37,7 +28,30 @@ struct alignas(64) atomic_uint_align64_t : std::atomic<uint32_t>{
 	}
 };
 
-inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
+template<class T , std::size_t N>
+struct alignas(N) align_intergral_t{
+	static_assert(std::is_integral<T>{} , "T must be trivial");
+	T _t{};
+
+	align_intergral_t() = default;
+	constexpr align_intergral_t(T t) : _t (t) {}
+
+	align_intergral_t & operator = (const T & t){
+		_t = t ;
+		return * this;
+	}
+
+	align_intergral_t & operator++ (){
+		++ _t ;
+		return * this;
+	}
+
+	operator T() {
+		return _t;
+	}
+};
+
+static inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
     return std::chrono::milliseconds{ms};
 }
 
