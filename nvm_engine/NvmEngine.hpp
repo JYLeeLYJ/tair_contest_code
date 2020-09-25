@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <atomic>
-#include <memory>
 
 #include "include/db.hpp"
 #include "include/boolean_filter.hpp"

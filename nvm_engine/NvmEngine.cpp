@@ -38,10 +38,10 @@ NvmEngine::NvmEngine(const std::string &name) {
     std::size_t sz = NVM_SIZE;
     constexpr auto key_size = ENTRY_MAX * KEY_SIZE , value_size = ENTRY_MAX * VALUE_SIZE    ;
 
-    _key = reinterpret_cast<key_t *>(std::align(256 , key_size , base , sz));
+    _key = reinterpret_cast<key_t *>(align(256 , key_size , base , sz));
     sz -= key_size;
     base = reinterpret_cast<char *>(base) + key_size;
-    _value = reinterpret_cast<value_t *>(std::align(4096 , value_size , base , sz));
+    _value = reinterpret_cast<value_t *>(align(4096 , value_size , base , sz));
     sz -= value_size;
 
     if(!_key || !_value){
@@ -56,9 +56,16 @@ NvmEngine::NvmEngine(const std::string &name) {
 Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     static bool flag{false};
+    static std::atomic<uint64_t> not_found_cnt{0};
+    static thread_local cnt{0};
+
     if(unlikely(flag == false)){
         flag = true;
         Logger::instance().log(fmt::format("*********** Start Get ***********"));
+    }
+
+    if(unlikely(cnt ++ % 5000000 == 0)){
+        Logger::instance().log(fmt::format("not found = {}" , not_found_cnt));
     }
 
     uint64_t hash = std::hash<std::string>{}(key.to_string());
@@ -70,6 +77,7 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
         value->assign(_value[index].data() , 80);
         return Ok;
     }else{
+        ++ not_found_cnt;
         return NotFound;
     }
 }
@@ -82,8 +90,10 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     static thread_local uint32_t cnt{0};
     if(unlikely(cnt ++ % 5000000 == 0))
         Logger::instance().log(
-            fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {}" ,
-            total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000));
+            fmt::format("set cnt = {} , append = {} ms , search_tm = {} ms" , cnt , append_tm / 1000000 , search_tm / 1000000)
+            // fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {}" ,
+            // total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000)
+            );
 
     uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
