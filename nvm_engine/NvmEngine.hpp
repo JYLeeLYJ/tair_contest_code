@@ -28,8 +28,19 @@ public:
 private:
     std::pair<uint32_t , uint32_t> search(const Slice & key , uint64_t hash);
     bool append(const Slice & key , const Slice & value , uint32_t i , uint64_t hash);
-    uint32_t allocate_index(uint64_t hash);
-    inline bool is_valid_index(uint32_t i) {    return i && i < BUCKET_MAX; }
+
+private:
+
+    uint32_t allocate_index(uint32_t bucket_id){
+        auto index = ++ entry_seq[bucket_id];
+        return index < ENTRY_PER_BUCKET ? index + bucket_id * ENTRY_PER_BUCKET : 0;
+    }
+    bool is_valid_index(uint32_t i) {
+        return i && i < BUCKET_MAX; 
+    }
+    uint32_t allocated_bucket_id(){
+        return (thread_seq ++ ) % WRITE_BUCKET;
+    }
 
 private:
 
@@ -58,6 +69,7 @@ private:
     std::atomic<uint32_t> *bucket{};
     
     std::array<atomic_uint_align64_t , WRITE_BUCKET> entry_seq{};
+    std::atomic<uint32_t> thread_seq{0};
     //256M
     bitmap_filter<FILTER_SIZE> bitset{};
 

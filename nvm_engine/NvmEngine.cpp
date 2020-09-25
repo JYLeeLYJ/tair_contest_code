@@ -74,7 +74,7 @@ static thread_local uint64_t total_set_tm{0},append_tm {0} , search_tm{0} , writ
 
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
-    time_elasped<std::chrono::nanoseconds> set_tm{total_set_tm};
+    // time_elasped<std::chrono::nanoseconds> set_tm{total_set_tm};
     static thread_local uint32_t cnt{0};
     if(unlikely(cnt ++ % 5000000 == 0))
         Logger::instance().log(
@@ -132,8 +132,9 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash
 }
 
 bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uint64_t hash){
+    static thread_local uint32_t write_bucket_id{allocated_bucket_id()};
     //allocated index 
-    uint32_t index = allocate_index(hash);
+    uint32_t index = allocate_index(write_bucket_id);
     //oom , full entry pool
     if(unlikely(!is_valid_index(index)))
         return false;
@@ -165,12 +166,6 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     memcpy_avx_80(entry[index].value , value.data());
 
     return true;
-}
-
-uint32_t NvmEngine::allocate_index(uint64_t hash){
-    uint32_t ibk = hash % WRITE_BUCKET;
-    uint32_t index = entry_seq[ibk] ++ ;
-    return index < ENTRY_PER_BUCKET ? index + ibk * ENTRY_PER_BUCKET : 0 ;
 }
 
 NvmEngine::~NvmEngine() {}
