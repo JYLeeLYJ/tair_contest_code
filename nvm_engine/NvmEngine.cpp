@@ -57,7 +57,7 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     static bool flag{false};
     static std::atomic<uint64_t> not_found_cnt{0};
-    static thread_local cnt{0};
+    static thread_local uint64_t cnt{0};
 
     if(unlikely(flag == false)){
         flag = true;
