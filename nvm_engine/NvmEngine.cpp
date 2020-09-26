@@ -38,10 +38,10 @@ NvmEngine::NvmEngine(const std::string &name) {
     std::size_t sz = NVM_SIZE;
     constexpr std::size_t key_size = ENTRY_MAX * KEY_SIZE , value_size = ENTRY_MAX * VALUE_SIZE    ;
 
-    key_array = reinterpret_cast<key_t *>(std::align(16 , key_size , base , sz));
+    key_array = reinterpret_cast<key_t *>(align(16 , key_size , base , sz));
     sz -= key_size;
     base = reinterpret_cast<char *>(base) + key_size;
-    value_array = reinterpret_cast<value_t *>(std::align(4096 , value_size , base , sz));
+    value_array = reinterpret_cast<value_t *>(align(4096 , value_size , base , sz));
     sz -= value_size;
 
     if(key_array == nullptr || value_array == nullptr){
