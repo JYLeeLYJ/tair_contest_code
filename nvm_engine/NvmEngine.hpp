@@ -26,8 +26,20 @@ public:
     ~NvmEngine();
 
 private:
+
+    void init_kv_space();
     std::pair<uint32_t , uint32_t> search(const Slice & key , uint64_t hash);
     bool append(const Slice & key , const Slice & value , uint32_t i , uint64_t hash);
+
+private:
+
+    struct key_t    :std::array<char , KEY_SIZE> {};
+    struct value_t  :std::array<char , VALUE_SIZE> {};
+
+    struct entry_t {
+        key_t key;
+        value_t value;
+    };
 
 private:
 
@@ -42,15 +54,17 @@ private:
         return (thread_seq ++ ) % WRITE_BUCKET;
     }
 
+    key_t & get_key(uint32_t index)  {
+        // return key_array[i];
+        return entry[index].key;
+    }
+
+    value_t & get_value(uint32_t index) {
+        // return value_array[i];
+        return entry[index].value;
+    }
+    
 private:/* static definition */
-
-    struct entry_t {
-        char key[KEY_SIZE];
-        char value[VALUE_SIZE];
-    };
-
-    struct key_t    :std::array<char , KEY_SIZE> {};
-    struct value_t  :std::array<char , VALUE_SIZE> {};
 
     static constexpr std::size_t KV_SIZE = VALUE_SIZE + KEY_SIZE;
 
@@ -72,9 +86,10 @@ private:/* static definition */
 
 private: /* data members */
 
+    entry_t * entry{};
     std::atomic<uint32_t> *bucket{};
-    key_t * key_array{};
-    value_t * value_array{};
+    // key_t * key_array{};
+    // value_t * value_array{};
     void * mmap_base{};
     
     alignas(CACHELINE_SIZE)

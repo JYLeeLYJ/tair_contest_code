@@ -26,7 +26,6 @@ Status NvmEngine::CreateOrOpen(const std::string &name, DB **dbptr) {
 NvmEngine::NvmEngine(const std::string &name) {
 
     bucket = new std::atomic<uint32_t>[BUCKET_MAX]{};
-    // memset(bucket, 0, sizeof(uint32_t) * BUCKET_MAX);
 
     mmap_base = pmem_map_file(name.c_str(), NVM_SIZE ,PMEM_FILE_CREATE, 0666, nullptr,nullptr);
 
@@ -35,21 +34,7 @@ NvmEngine::NvmEngine(const std::string &name) {
         exit(1);
     }
 
-    void * base = mmap_base;
-    std::size_t sz = NVM_SIZE;
-    constexpr std::size_t key_size = ENTRY_MAX * KEY_SIZE , value_size = ENTRY_MAX * VALUE_SIZE    ;
-
-    key_array = reinterpret_cast<key_t *>(align(16 , key_size , base , sz));
-    sz -= key_size;
-    base = reinterpret_cast<char *>(base) + key_size;
-    value_array = reinterpret_cast<value_t *>(align(4096 , value_size , base , sz));
-    sz -= value_size;
-
-    if(key_array == nullptr || value_array == nullptr){
-        perror("Align space allocated failed.");
-        exit(1);
-    }
-
+    init_kv_space();
     Logger::instance().sync_log("*************************");
 }
 
@@ -61,23 +46,15 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
         Logger::instance().log(fmt::format("*********** Start Get ***********"));
     }
 
-    static thread_local uint32_t cnt{0};
-    static std::atomic<uint64_t> not_found{0};
-    if(unlikely(cnt ++ % 5000000 == 0))
-        Logger::instance().log(
-            fmt::format("cnt = {} , not found = {}" , cnt , not_found));
-
-
     uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
 
     std::tie(index , bucket_i) = search(key , hash);
 
     if(likely(index)){
-        value->assign(value_array[index].data() , VALUE_SIZE );
+        value->assign(get_value(index).data() , VALUE_SIZE );
         return Ok;
     }else{
-        ++not_found;
         return NotFound;
     }
 }
@@ -87,11 +64,11 @@ static thread_local uint64_t total_set_tm{0},append_tm {0} , search_tm{0} , writ
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     // time_elasped<std::chrono::nanoseconds> set_tm{total_set_tm};
-    static thread_local uint32_t cnt{0} , oom{0};
+    static thread_local uint32_t cnt{0};
     if(unlikely(cnt ++ % 5000000 == 0))
         Logger::instance().log(
-            fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {} , oom = {}" ,
-            total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000 , oom));
+            fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {}" ,
+            total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000));
 
     uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
@@ -104,7 +81,7 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     //update
     if(unlikely(index)){
-        memcpy_avx_80(value_array[index].data() , value.data());
+        memcpy_avx_80(get_key(index).data() , value.data());
         return Ok;
     }
     //insert
@@ -114,7 +91,6 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
             bitset.set(hash % bitset.max_index);
             return Ok;
         }else{
-            ++ oom;
             return OutOfMemory;
         }
     }
@@ -122,6 +98,26 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     else{
         return OutOfMemory;
     }
+}
+
+void NvmEngine::init_kv_space(){
+    
+    entry = reinterpret_cast<entry_t *>(mmap_base);
+
+    // void * base = mmap_base;
+    // std::size_t sz = NVM_SIZE;
+    // constexpr std::size_t key_size = ENTRY_MAX * KEY_SIZE , value_size = ENTRY_MAX * VALUE_SIZE    ;
+
+    // key_array = reinterpret_cast<key_t *>(align(16 , key_size , base , sz));
+    // sz -= key_size;
+    // base = reinterpret_cast<char *>(base) + key_size;
+    // value_array = reinterpret_cast<value_t *>(align(4096 , value_size , base , sz));
+    // sz -= value_size;
+
+    // if(key_array == nullptr || value_array == nullptr){
+    //     perror("Align space allocated failed.");
+    //     exit(1);
+    // }
 }
 
 std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash){
@@ -133,7 +129,7 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash
         uint32_t index = bucket[bucket_id];
 
         //found
-        if (fast_key_cmp_eq(key_array[index].data(), key.data()))
+        if (fast_key_cmp_eq(get_key(index).data(), key.data()))
             return {index , i};
         
         ++bucket_id;
@@ -175,8 +171,8 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     // time_elasped<std::chrono::nanoseconds> tm{write_tm};
 
     //write
-    memcpy_avx_16(key_array[index].data() , key.data());
-    memcpy_avx_80(value_array[index].data() , value.data());
+    memcpy_avx_16(get_key(index).data() , key.data());
+    memcpy_avx_80(get_value(index).data() , value.data());
 
     return true;
 }
