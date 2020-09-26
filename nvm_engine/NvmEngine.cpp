@@ -12,6 +12,7 @@
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     Logger::instance().set_file(log_file);
+    Logger::instance().sync_log(name);
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
@@ -49,7 +50,6 @@ NvmEngine::NvmEngine(const std::string &name) {
         exit(1);
     }
 
-    Logger::instance().sync_log(name);
     Logger::instance().sync_log("*************************");
 }
 

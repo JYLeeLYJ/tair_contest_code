@@ -59,7 +59,7 @@ private:/* static definition */
     static constexpr std::size_t DRAM_SIZE = 16 * 1024 * 1024;       //16M
     static constexpr std::size_t FILTER_SIZE = 1 * 1024 * 1024;
     #else
-    static constexpr std::size_t NVM_SIZE = 79456894976;
+    static constexpr std::size_t NVM_SIZE = 48ULL * 16 * 1024 * 1024 * KV_SIZE; //79456894976
     static constexpr std::size_t DRAM_SIZE = 4200000000;
     static constexpr std::size_t FILTER_SIZE = 256ULL * 1024 * 1024 * 8;
     #endif
