@@ -12,7 +12,6 @@
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     Logger::instance().set_file(log_file);
-    Logger::instance().sync_log(name);
     return NvmEngine::CreateOrOpen(name, dbptr);
 }
 
@@ -26,15 +25,16 @@ Status NvmEngine::CreateOrOpen(const std::string &name, DB **dbptr) {
 NvmEngine::NvmEngine(const std::string &name) {
 
     bucket = new std::atomic<uint32_t>[BUCKET_MAX]{};
+    // memset(bucket, 0, sizeof(uint32_t) * BUCKET_MAX);
 
-    mmap_base = pmem_map_file(name.c_str(), NVM_SIZE ,PMEM_FILE_CREATE, 0666, nullptr,nullptr);
-
-    if ( mmap_base == nullptr) {
+    if ((entry = (entry_t *)(pmem_map_file(name.c_str(),
+                                          ENTRY_MAX * sizeof(entry_t),
+                                          PMEM_FILE_CREATE, 0666, nullptr,
+                                          nullptr))) == NULL) {
         perror("Pmem map file failed");
         exit(1);
     }
-
-    init_kv_space();
+    Logger::instance().sync_log(name);
     Logger::instance().sync_log("*************************");
 }
 
@@ -52,72 +52,41 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
     std::tie(index , bucket_i) = search(key , hash);
 
     if(likely(index)){
-        value->assign(get_value(index).data() , VALUE_SIZE );
+        value->assign(entry[index].value , 80);
         return Ok;
     }else{
         return NotFound;
     }
 }
 
-static thread_local uint64_t total_set_tm{0},append_tm {0} , search_tm{0} , write_tm{0} , setindex_tm{0};
+// static thread_local uint64_t total_set_tm{0},append_tm {0} , search_tm{0} , write_tm{0} , setindex_tm{0};
 
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     // time_elasped<std::chrono::nanoseconds> set_tm{total_set_tm};
-    static thread_local uint32_t cnt{0};
-    if(unlikely(cnt ++ % 5000000 == 0))
-        Logger::instance().log(
-            fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {}" ,
-            total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000));
+    // static thread_local uint32_t cnt{0};
+    // if(unlikely(cnt ++ % 5000000 == 0))
+    //     Logger::instance().log(
+    //         fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {}" ,
+    //         total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000));
 
     uint64_t hash = std::hash<std::string>{}(key.to_string());
-    uint32_t index {0} , bucket_id {std::numeric_limits<uint32_t>::max()};
+    uint32_t index {0} , bucket_id {static_cast<uint32_t>(hash % BUCKET_MAX)};
 
     if(unlikely(bitset.test(hash % bitset.max_index))){
-        time_elasped<std::chrono::nanoseconds> tm{search_tm};
         std::tie(index , bucket_id) = search(key , hash);
-    }else 
-        bucket_id = hash % BUCKET_MAX;
+    }
 
     //update
     if(unlikely(index)){
-        memcpy_avx_80(get_key(index).data() , value.data());
+        memcpy_avx_80(entry[index].value , value.data());
         return Ok;
     }
     //insert
-    else if(likely(bucket_id != std::numeric_limits<uint32_t>::max())){
-        time_elasped<std::chrono::nanoseconds> tm{append_tm}; 
-        if(append(key , value , bucket_id , hash)){
-            bitset.set(hash % bitset.max_index);
-            return Ok;
-        }else{
-            return OutOfMemory;
-        }
+    else {
+        // time_elasped<std::chrono::nanoseconds> tm{append_tm}; 
+        return append(key , value , bucket_id , hash) ? Ok : OutOfMemory;
     }
-    //oom
-    else{
-        return OutOfMemory;
-    }
-}
-
-void NvmEngine::init_kv_space(){
-    
-    entry = reinterpret_cast<entry_t *>(mmap_base);
-
-    // void * base = mmap_base;
-    // std::size_t sz = NVM_SIZE;
-    // constexpr std::size_t key_size = ENTRY_MAX * KEY_SIZE , value_size = ENTRY_MAX * VALUE_SIZE    ;
-
-    // key_array = reinterpret_cast<key_t *>(align(16 , key_size , base , sz));
-    // sz -= key_size;
-    // base = reinterpret_cast<char *>(base) + key_size;
-    // value_array = reinterpret_cast<value_t *>(align(4096 , value_size , base , sz));
-    // sz -= value_size;
-
-    // if(key_array == nullptr || value_array == nullptr){
-    //     perror("Align space allocated failed.");
-    //     exit(1);
-    // }
 }
 
 std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash){
@@ -127,9 +96,10 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash
             return {0 , bucket_id};
         
         uint32_t index = bucket[bucket_id];
+        auto & ele = entry[index];
 
         //found
-        if (fast_key_cmp_eq(get_key(index).data(), key.data()))
+        if (fast_key_cmp_eq(ele.key, key.data()))
             return {index , i};
         
         ++bucket_id;
@@ -145,7 +115,7 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     //allocated index 
     uint32_t index = allocate_index(write_bucket_id);
     //oom , full entry pool
-    if(unlikely(!is_valid_index(index)))
+    if(unlikely(!is_valid_index(index) || i == std::numeric_limits<uint32_t>::max()))
         return false;
 
     //write index
@@ -171,8 +141,14 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     // time_elasped<std::chrono::nanoseconds> tm{write_tm};
 
     //write
-    memcpy_avx_16(get_key(index).data() , key.data());
-    memcpy_avx_80(get_value(index).data() , value.data());
+    #ifdef LOCAL_TEST
+    memcpy_avx_16(entry[index].key , key.data());
+    memcpy_avx_80(entry[index].value , value.data());
+    #else
+    pmem_memcpy_persist(&entry[index] , key.data() , 96);
+    #endif
+
+    bitset.set(hash % bitset.max_index);
 
     return true;
 }

@@ -26,20 +26,8 @@ public:
     ~NvmEngine();
 
 private:
-
-    void init_kv_space();
     std::pair<uint32_t , uint32_t> search(const Slice & key , uint64_t hash);
     bool append(const Slice & key , const Slice & value , uint32_t i , uint64_t hash);
-
-private:
-
-    struct key_t    :std::array<char , KEY_SIZE> {};
-    struct value_t  :std::array<char , VALUE_SIZE> {};
-
-    struct entry_t {
-        key_t key;
-        value_t value;
-    };
 
 private:
 
@@ -54,56 +42,44 @@ private:
         return (thread_seq ++ ) % WRITE_BUCKET;
     }
 
-    key_t & get_key(uint32_t index)  {
-        // return key_array[i];
-        return entry[index].key;
-    }
-
-    value_t & get_value(uint32_t index) {
-        // return value_array[i];
-        return entry[index].value;
-    }
-    
 private:/* static definition */
 
-    static constexpr std::size_t KV_SIZE = VALUE_SIZE + KEY_SIZE;
+    struct entry_t {
+        char key[16];
+        char value[80];
+    };
 
     #ifdef LOCAL_TEST
-    static constexpr std::size_t NVM_SIZE = 2*1024*1024* KV_SIZE;
-    static constexpr std::size_t DRAM_SIZE = 16 * 1024 * 1024;       //16M
-    static constexpr std::size_t FILTER_SIZE = 1 * 1024 * 1024;
+    static constexpr size_t NVM_SIZE = 2*1024*1024*sizeof(entry_t);
+    static constexpr size_t DRAM_SIZE = 16 * 1024 * 1024;       //16M
+    static constexpr size_t FILTER_SIZE = 1 * 1024 * 1024;
     #else
-    static constexpr std::size_t NVM_SIZE = 48ULL * 16 * 1024 * 1024 * KV_SIZE; //79456894976
-    static constexpr std::size_t DRAM_SIZE = 4200000000;
-    static constexpr std::size_t FILTER_SIZE = 256ULL * 1024 * 1024 * 8;
+    static constexpr size_t NVM_SIZE = 79456894976;
+    static constexpr size_t DRAM_SIZE = 4200000000;
+    static constexpr size_t FILTER_SIZE = 400ULL * 1024 * 1024 * 8;
     #endif
 
     //load factor ~ 0.73
-    static constexpr std::size_t ENTRY_MAX = NVM_SIZE / KV_SIZE;       //74G / 80 entries
-    static constexpr std::size_t BUCKET_MAX = DRAM_SIZE / sizeof(std::atomic<uint32_t>);    //1G buckets
-    static constexpr std::size_t WRITE_BUCKET = 16;
-    static constexpr std::size_t ENTRY_PER_BUCKET = ENTRY_MAX / WRITE_BUCKET;
+    static constexpr uint32_t ENTRY_MAX = NVM_SIZE / sizeof(entry_t);       //74G / 80 entries
+    static constexpr uint32_t BUCKET_MAX = DRAM_SIZE / sizeof(std::atomic<uint32_t>);    //1G buckets
+    static constexpr uint32_t WRITE_BUCKET = 16;
+    static constexpr uint32_t ENTRY_PER_BUCKET = ENTRY_MAX / WRITE_BUCKET;
 
 private: /* data members */
 
-    entry_t * entry{};
+    entry_t *entry{};
     std::atomic<uint32_t> *bucket{};
-    // key_t * key_array{};
-    // value_t * value_array{};
-    void * mmap_base{};
-    
-    alignas(CACHELINE_SIZE)
-    std::array<atomic_uint_align64_t, WRITE_BUCKET> entry_seq{};
+
+    alignas(CACHELINE_SIZE) 
+    std::array<align_intergral_t<uint32_t , CACHELINE_SIZE>, WRITE_BUCKET> entry_seq{};
     std::atomic<uint32_t> thread_seq{0};
     //256M
     bitmap_filter<FILTER_SIZE> bitset{};
 
 private: /* static asserts */
 
-    static_assert(sizeof(key_t) == KEY_SIZE , "error key_t size");
-    static_assert(sizeof(value_t) == VALUE_SIZE , "error value_t size");
+    static_assert(alignof(entry_seq) == CACHELINE_SIZE , "err");
     static_assert(sizeof(entry_seq) == CACHELINE_SIZE * WRITE_BUCKET , "error align");
-    static_assert(alignof(entry_seq) == CACHELINE_SIZE , "error align");
 };
 
 #endif
