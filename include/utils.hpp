@@ -121,25 +121,30 @@ inline std::size_t
 shift_mix(std::size_t v)
 { return v ^ (v >> 47);}
 
-static inline size_t hash_bytes_16(const void* ptr)
-{
-    static constexpr size_t len = 16 , seed = 0xc70f6907UL;
-    static const size_t mul = (((size_t) 0xc6a4a793UL) << 32UL) + (size_t) 0x5bd1e995UL;
-    const char* p = static_cast<const char*>(ptr);
+static inline size_t hash_impl(const uint64_t kk[2]){
+    
+    constexpr size_t mul = (((size_t) 0xc6a4a793UL) << 32UL) + (size_t) 0x5bd1e995UL;
+    constexpr size_t len = 16 , seed = 0xc70f6907UL;
 
     size_t hash = seed ^ (len * mul);
- 
-	const size_t data1 = shift_mix(*reinterpret_cast<const size_t*>(p) * mul) * mul ;
-    const size_t data2 = shift_mix(*reinterpret_cast<const size_t*>(p + 8)* mul) * mul;
 
-	hash ^= data1;
+	hash ^= shift_mix(kk[0] * mul) * mul;
 	hash *= mul;
-	hash ^= data2;
+	hash ^= shift_mix(kk[1] * mul) * mul;
 	hash *= mul;
-
     hash = shift_mix(hash) * mul;
     hash = shift_mix(hash);
     return hash;
+}
+
+static inline size_t hash_bytes_16(const char * ptr){	
+	return hash_impl(reinterpret_cast<const uint64_t *>(ptr));
+}
+
+static inline size_t hash_bytes_16_sim(const char * ptr) {
+    constexpr size_t mul = (((size_t) 0xc6a4a793UL) << 32UL) + (size_t) 0x5bd1e995UL;
+	auto p = reinterpret_cast<const uint64_t *>(ptr);
+	return p[0] * mul + p[1]  ; 
 }
 
 #endif

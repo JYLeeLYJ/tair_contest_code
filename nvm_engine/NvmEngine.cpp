@@ -47,7 +47,8 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
     }
 
     // uint64_t hash = std::hash<std::string>{}(key.to_string());
-    uint64_t hash = hash_bytes_16(key.data());
+    // uint64_t hash = hash_bytes_16(key.data());
+    uint64_t hash = hash_bytes_16_sim(key.data());
     uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
 
     std::tie(index , bucket_i) = search(key , hash);
@@ -72,7 +73,8 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     //         total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000));
 
     // uint64_t hash = std::hash<std::string>{}(key.to_string());
-    uint64_t hash = hash_bytes_16(key.data());
+    // uint64_t hash = hash_bytes_16(key.data());
+    uint64_t hash = hash_bytes_16_sim(key.data());
     uint32_t index {0} , bucket_id {static_cast<uint32_t>(hash % BUCKET_MAX)};
 
     if(unlikely(bitset.test(hash % bitset.max_index))){

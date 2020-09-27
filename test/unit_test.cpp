@@ -119,7 +119,7 @@ void test_fast_mem_cpy(){
 void test_hash_bytes(){
     constexpr size_t seed = 0xc70f6907UL;
 
-    ASSERT(_Hash_bytes_16(std::string(16 , 'a').data()) == std::hash<std::string>{}(std::string(16,'a').data()));
+    ASSERT(hash_bytes_16(std::string(16 , 'a').data()) == std::hash<std::string>{}(std::string(16,'a').data()));
 }
 
 void main_test_func(){
