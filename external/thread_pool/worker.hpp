@@ -171,7 +171,7 @@ inline void Worker<Task, Queue>::threadFunc(size_t id, Worker* steal_donor)
         }
         else
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            std::this_thread::sleep_for(std::chrono::nanoseconds(1));
         }
     }
 }

@@ -10,7 +10,6 @@
 
 #include "include/db.hpp"
 #include "include/boolean_filter.hpp"
-#include "thread_pool.hpp"
 
 class NvmEngine : DB {
 public:
@@ -76,8 +75,6 @@ private: /* data members */
     std::atomic<uint32_t> thread_seq{0};
     //256M
     bitmap_filter<FILTER_SIZE> bitset{};
-
-    tp::ThreadPool thread_pool;
 
 private: /* static asserts */
 
