@@ -145,7 +145,8 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     memcpy_avx_16(entry[index].key , key.data());
     memcpy_avx_80(entry[index].value , value.data());
     #else
-    pmem_memcpy_persist(&entry[index] , key.data() , 96);
+    pmem_memcpy_nodrain(&entry[index].key , key.data() , 16);
+    pmem_memcpy_nodrain(&entry[index].value , value.data() , 80);
     #endif
 
     bitset.set(hash % bitset.max_index);
