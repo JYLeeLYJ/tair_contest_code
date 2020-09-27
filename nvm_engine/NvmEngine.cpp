@@ -48,9 +48,9 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     // uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint64_t hash = hash_bytes_16(key.data());
-    uint32_t index {0} , bucket_i {static_cast<uint32_t>(hash % BUCKET_MAX)};
+    uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
 
-    std::tie(index , bucket_i) = search(key , bucket_i);
+    std::tie(index , bucket_i) = search(key , hash);
 
     if(likely(index)){
         value->assign(entry[index].value , 80);
@@ -76,7 +76,7 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     uint32_t index {0} , bucket_id {static_cast<uint32_t>(hash % BUCKET_MAX)};
 
     if(unlikely(bitset.test(hash % bitset.max_index))){
-        std::tie(index , bucket_id) = search(key , bucket_id);
+        std::tie(index , bucket_id) = search(key , hash);
     }
 
     //update
@@ -91,8 +91,8 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     }
 }
 
-std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t bucket_id){
-    for (uint32_t i = 0 ; i < BUCKET_MAX ; i++) {
+std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash){
+    for (uint32_t i = 0 , bucket_id = hash % BUCKET_MAX; i < BUCKET_MAX ; i++) {
         //not found
         if(bucket[bucket_id] == 0)
             return {0 , bucket_id};
@@ -104,7 +104,8 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t buck
         if (fast_key_cmp_eq(ele.key, key.data()))
             return {index , i};
         
-        bucket_id = ( bucket_id + i * i ) % BUCKET_MAX;
+        ++bucket_id;
+        bucket_id %= BUCKET_MAX;
     }
 
     //full bucket and not found
@@ -123,11 +124,13 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     uint32_t cnt = 0 ;
     // {
     // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
-    for (; cnt < BUCKET_MAX ; ++cnt , i = (i + cnt * cnt) % BUCKET_MAX){
+    for (; cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
+        if(bucket[i]) continue;
+
         uint32_t empty_val {0};
-        if(bucket[i] == 0 && bucket[i].compare_exchange_weak(
+        if(bucket[i].compare_exchange_weak(
             empty_val, 
-            index ,
+            index , 
             std::memory_order_release ,
             std::memory_order_relaxed))
             break;
