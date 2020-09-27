@@ -55,8 +55,8 @@ private:/* static definition */
     static constexpr size_t FILTER_SIZE = 1 * 1024 * 1024;
     #else
     static constexpr size_t NVM_SIZE = 79456894976;
-    static constexpr size_t DRAM_SIZE = 4200000000;
-    static constexpr size_t FILTER_SIZE = 400ULL * 1024 * 1024 * 8;
+    static constexpr size_t DRAM_SIZE = 4000000000;
+    static constexpr size_t FILTER_SIZE = 600ULL * 1024 * 1024 * 8;
     #endif
 
     //load factor ~ 0.73
@@ -74,7 +74,7 @@ private: /* data members */
     std::array<align_intergral_t<uint32_t , CACHELINE_SIZE>, WRITE_BUCKET> entry_seq{};
     std::atomic<uint32_t> thread_seq{0};
     //256M
-    // bitmap_filter<FILTER_SIZE> bitset{};
+    bitmap_filter<FILTER_SIZE> bitset{};
 
 private: /* static asserts */
 

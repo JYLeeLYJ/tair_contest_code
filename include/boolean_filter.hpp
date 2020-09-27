@@ -31,12 +31,12 @@ public:
     }
 
     bool test(std::size_t i ) const{
-        if(i >= max_index) return false;
+        // if(i >= max_index) return false;
         return _bitset[i >> 3].test(i & 0x07);
     }
 
     void set(std::size_t i){
-        if(i >= max_index) return ;
+        // if(i >= max_index) return ;
         _bitset[i >> 3].set(i & 0x07);
     }
     

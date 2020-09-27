@@ -73,24 +73,22 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     // uint64_t hash = std::hash<std::string>{}(key.to_string());
     uint64_t hash = hash_bytes_16(key.data());
-    uint32_t bucket_id {static_cast<uint32_t>(hash % BUCKET_MAX)};
+    uint32_t index {0} , bucket_id {static_cast<uint32_t>(hash % BUCKET_MAX)};
 
-    return append(key , value , bucket_id , hash) ? Ok : OutOfMemory ;
+    if(unlikely(bitset.test(hash % bitset.max_index))){
+        std::tie(index , bucket_id) = search(key , hash);
+    }
 
-    // if(unlikely(bitset.test(hash % bitset.max_index))){
-    //     std::tie(index , bucket_id) = search(key , hash);
-    // }
-
-    // //update
-    // if(unlikely(index)){
-    //     memcpy_avx_80(entry[index].value , value.data());
-    //     return Ok;
-    // }
-    // //insert
-    // else {
-    //     // time_elasped<std::chrono::nanoseconds> tm{append_tm}; 
-    //     return append(key , value , bucket_id , hash) ? Ok : OutOfMemory;
-    // }
+    //update
+    if(unlikely(index)){
+        memcpy_avx_80(entry[index].value , value.data());
+        return Ok;
+    }
+    //insert
+    else {
+        // time_elasped<std::chrono::nanoseconds> tm{append_tm}; 
+        return append(key , value , bucket_id , hash) ? Ok : OutOfMemory;
+    }
 }
 
 std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t hash){
@@ -126,8 +124,16 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     uint32_t cnt = 0 ;
     // {
     // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
-    for (uint32_t old_i = index; old_i &&  cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
-        old_i = bucket[i].exchange(old_i , std::memory_order_relaxed);
+    for (; cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
+        if(bucket[i]) continue;
+
+        uint32_t empty_val {0};
+        if(bucket[i].compare_exchange_weak(
+            empty_val, 
+            index , 
+            std::memory_order_release ,
+            std::memory_order_relaxed))
+            break;
     }
     // }
     //oom
@@ -140,7 +146,7 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     memcpy_avx_16(entry[index].key , key.data());
     memcpy_avx_80(entry[index].value , value.data());
 
-    // bitset.set(hash % bitset.max_index);
+    bitset.set(hash % bitset.max_index);
 
     return true;
 }
