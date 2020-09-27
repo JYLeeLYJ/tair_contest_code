@@ -109,4 +109,37 @@ inline void *align( std::size_t alignment, std::size_t size,
     return ptr = reinterpret_cast< void * >( aligned );
 }
 
+inline std::size_t
+unaligned_load(const char* p)
+{
+std::size_t result;
+__builtin_memcpy(&result, p, sizeof(result));
+return result;
+}
+
+inline std::size_t
+shift_mix(std::size_t v)
+{ return v ^ (v >> 47);}
+
+static inline size_t hash_bytes_16(const void* ptr)
+{
+    static constexpr size_t len = 16 , seed = 0xc70f6907UL;
+    static const size_t mul = (((size_t) 0xc6a4a793UL) << 32UL) + (size_t) 0x5bd1e995UL;
+    const char* p = static_cast<const char*>(ptr);
+
+    size_t hash = seed ^ (len * mul);
+ 
+	const size_t data1 = shift_mix(unaligned_load(p) * mul) * mul ;
+    const size_t data2 = shift_mix(unaligned_load(p + 8)* mul) * mul;
+
+	hash ^= data1;
+	hash *= mul;
+	hash ^= data2;
+	hash *= mul;
+
+    hash = shift_mix(hash) * mul;
+    hash = shift_mix(hash);
+    return hash;
+}
+
 #endif
