@@ -74,7 +74,7 @@ private: /* data members */
     std::array<align_intergral_t<uint32_t , CACHELINE_SIZE>, WRITE_BUCKET> entry_seq{};
     std::atomic<uint32_t> thread_seq{0};
     //256M
-    bitmap_filter<FILTER_SIZE> bitset{};
+    // bitmap_filter<FILTER_SIZE> bitset{};
 
 private: /* static asserts */
 
