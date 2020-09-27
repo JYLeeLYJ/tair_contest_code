@@ -104,7 +104,7 @@ std::pair<uint32_t,uint32_t> NvmEngine::search(const Slice & key , uint64_t buck
         if (fast_key_cmp_eq(ele.key, key.data()))
             return {index , i};
         
-        bucket_id = (bucket_id == BUCKET_MAX - 1 ? 0 : bucket_id +1);
+        bucket_id = ( bucket_id + i * i ) % BUCKET_MAX;
     }
 
     //full bucket and not found
@@ -123,13 +123,11 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     uint32_t cnt = 0 ;
     // {
     // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
-    for (; cnt < BUCKET_MAX ; ++cnt , i = (i == BUCKET_MAX - 1 ? 0 : i + 1)){
-        if(bucket[i]) continue;
-
+    for (; cnt < BUCKET_MAX ; ++cnt , i = (i + cnt * cnt) % BUCKET_MAX){
         uint32_t empty_val {0};
-        if(bucket[i].compare_exchange_weak(
+        if(bucket[i] == 0 && bucket[i].compare_exchange_weak(
             empty_val, 
-            index , 
+            index ,
             std::memory_order_release ,
             std::memory_order_relaxed))
             break;
