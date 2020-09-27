@@ -4,6 +4,7 @@
 #include "fmt/format.h"
 
 #include <tuple>
+#include <future>
 
 #include <libpmem.h>
 #include <sys/mman.h>
@@ -22,7 +23,8 @@ Status NvmEngine::CreateOrOpen(const std::string &name, DB **dbptr) {
     return Ok;
 }
 
-NvmEngine::NvmEngine(const std::string &name) {
+NvmEngine::NvmEngine(const std::string &name)
+: thread_pool(tp::ThreadPoolOptions{}.setThreadCount(WRITE_BUCKET)) {
 
     bucket = new std::atomic<uint32_t>[BUCKET_MAX]{};
     // memset(bucket, 0, sizeof(uint32_t) * BUCKET_MAX);
@@ -118,38 +120,36 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     if(unlikely(!is_valid_index(index) || i == std::numeric_limits<uint32_t>::max()))
         return false;
 
-    //write index
-    uint32_t cnt = 0 ;
-    // {
-    // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
-    for (; cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
-        if(bucket[i]) continue;
-
-        uint32_t empty_val {0};
-        if(bucket[i].compare_exchange_weak(
-            empty_val, 
-            index , 
-            std::memory_order_release ,
-            std::memory_order_relaxed))
-            break;
-    }
-    // }
-    //oom
-    if(unlikely(cnt == BUCKET_MAX))
-        return false;
-
     // time_elasped<std::chrono::nanoseconds> tm{write_tm};
 
+    std::promise<void> r {};
+    std::future<void> f = r.get_future();
+
+    thread_pool.post([this , hash , i , &r , index]() mutable{
+        //write index
+        // {
+        // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
+        for (uint32_t cnt = 0 ; cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
+            if(bucket[i]) continue;
+
+            uint32_t empty_val {0};
+            if(bucket[i].compare_exchange_weak(
+                empty_val, 
+                index , 
+                std::memory_order_release ,
+                std::memory_order_relaxed))
+                break;
+        }
+        // }
+        r.set_value();
+        bitset.set(hash % bitset.max_index);
+    });
+
     //write
-    #ifdef LOCAL_TEST
     memcpy_avx_16(entry[index].key , key.data());
     memcpy_avx_80(entry[index].value , value.data());
-    #else
-    pmem_memcpy_nodrain(&entry[index].key , key.data() , 16);
-    pmem_memcpy_nodrain(&entry[index].value , value.data() , 80);
-    #endif
 
-    bitset.set(hash % bitset.max_index);
+    f.wait();
 
     return true;
 }

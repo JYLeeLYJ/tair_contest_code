@@ -22,13 +22,13 @@ public:
      * @brief setThreadCount Set thread count.
      * @param count Number of threads to be created.
      */
-    void setThreadCount(size_t count);
+    ThreadPoolOptions & setThreadCount(size_t count);
 
     /**
      * @brief setQueueSize Set single worker queue size.
      * @param count Maximum length of queue of single worker.
      */
-    void setQueueSize(size_t size);
+    ThreadPoolOptions & setQueueSize(size_t size);
 
     /**
      * @brief threadCount Return thread count.
@@ -53,14 +53,16 @@ inline ThreadPoolOptions::ThreadPoolOptions()
 {
 }
 
-inline void ThreadPoolOptions::setThreadCount(size_t count)
+inline ThreadPoolOptions &  ThreadPoolOptions::setThreadCount(size_t count)
 {
     m_thread_count = std::max<size_t>(1u, count);
+    return * this;
 }
 
-inline void ThreadPoolOptions::setQueueSize(size_t size)
+inline ThreadPoolOptions &  ThreadPoolOptions::setQueueSize(size_t size)
 {
     m_queue_size = std::max<size_t>(1u, size);
+    return * this;
 }
 
 inline size_t ThreadPoolOptions::threadCount() const
