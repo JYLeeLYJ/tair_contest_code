@@ -38,8 +38,6 @@ NvmEngine::NvmEngine(const std::string &name) {
     Logger::instance().sync_log("*************************");
 }
 
-// static thread_local uint64_t hash_tm{0} , search_tm{0} , get_tm{0};
-
 Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     static bool flag{false};
@@ -48,27 +46,13 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
         Logger::instance().log(fmt::format("*********** Start Get ***********"));
     }
 
-    // static thread_local uint32_t cnt{0};
-    // if(unlikely(cnt ++ % 5000000 == 0))
-    //     Logger::instance().log(
-    //         fmt::format("[Get]hash_tm = {} , search_tm = {} , assign_tm = {} " , hash_tm , search_tm , get_tm));
-
-    uint64_t hash ;
-    // {
-    // time_elasped<std::chrono::nanoseconds> tm{hash_tm};
-    // hash = std::hash<std::string>{}(key.to_string());
-    hash = hash_bytes_16(key.data());
-    // }
-
+    // uint64_t hash = std::hash<std::string>{}(key.to_string());
+    uint64_t hash = hash_bytes_16(key.data());
     uint32_t index {0} , bucket_i {std::numeric_limits<uint32_t>::max()};
 
-    // {
-    // time_elasped<std::chrono::nanoseconds> tm{search_tm};
     std::tie(index , bucket_i) = search(key , hash);
-    // }
 
     if(likely(index)){
-        // time_elasped<std::chrono::nanoseconds> tm{get_tm};
         value->assign(entry[index].value , 80);
         return Ok;
     }else{
@@ -76,36 +60,27 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
     }
 }
 
-// static thread_local uint64_t append_tm {0} , search_test_tm{0} , write_tm{0} , setindex_tm{0} , update_tm{0};
+// static thread_local uint64_t total_set_tm{0},append_tm {0} , search_tm{0} , write_tm{0} , setindex_tm{0};
 
 Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
+    // time_elasped<std::chrono::nanoseconds> set_tm{total_set_tm};
     // static thread_local uint32_t cnt{0};
     // if(unlikely(cnt ++ % 5000000 == 0))
     //     Logger::instance().log(
-    //         fmt::format("append_time = {} , search and test = {} , write and set = {} , setindex_tm = {} , hash = {} , update = {}" ,
-    //         append_tm / 1000000, search_test_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000 , hash_tm/1000000 , update_tm / 1000000));
+    //         fmt::format("set time = {} ,append_time = {} , search in set = {} , write time = {} , setindex_tm = {}" ,
+    //         total_set_tm / 1000000 ,append_tm / 1000000, search_tm/1000000 , write_tm / 1000000 , setindex_tm / 1000000));
 
-
-    uint64_t hash ;
-    // {
-    // time_elasped<std::chrono::nanoseconds> tm{hash_tm};
-    // hash = std::hash<std::string>{}(key.to_string());
-    hash = hash_bytes_16(key.data());
-    // }
+    // uint64_t hash = std::hash<std::string>{}(key.to_string());
+    uint64_t hash = hash_bytes_16(key.data());
     uint32_t index {0} , bucket_id {static_cast<uint32_t>(hash % BUCKET_MAX)};
 
-    // {
-    //     time_elasped<std::chrono::nanoseconds> tm{search_test_tm};
     if(unlikely(bitset.test(hash % bitset.max_index))){
         std::tie(index , bucket_id) = search(key , hash);
     }
 
-    // }
-
     //update
     if(unlikely(index)){
-        // time_elasped<std::chrono::nanoseconds> tm{update_tm};
         memcpy_avx_80(entry[index].value , value.data());
         return Ok;
     }
@@ -147,7 +122,7 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
 
     //write index
     uint32_t cnt = 0 ;
-    {
+    // {
     // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
     for (; cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
         if(bucket[i]) continue;
@@ -160,7 +135,7 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
             std::memory_order_relaxed))
             break;
     }
-    }
+    // }
     //oom
     if(unlikely(cnt == BUCKET_MAX))
         return false;

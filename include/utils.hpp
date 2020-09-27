@@ -109,13 +109,13 @@ inline void *align( std::size_t alignment, std::size_t size,
     return ptr = reinterpret_cast< void * >( aligned );
 }
 
-inline std::size_t
-unaligned_load(const char* p)
-{
-std::size_t result;
-__builtin_memcpy(&result, p, sizeof(result));
-return result;
-}
+// inline std::size_t
+// unaligned_load(const char* p)
+// {
+// std::size_t result;
+// __builtin_memcpy(&result, p, sizeof(result));
+// return result;
+// }
 
 inline std::size_t
 shift_mix(std::size_t v)
@@ -129,8 +129,8 @@ static inline size_t hash_bytes_16(const void* ptr)
 
     size_t hash = seed ^ (len * mul);
  
-	const size_t data1 = shift_mix(unaligned_load(p) * mul) * mul ;
-    const size_t data2 = shift_mix(unaligned_load(p + 8)* mul) * mul;
+	const size_t data1 = shift_mix(*reinterpret_cast<const size_t*>(p) * mul) * mul ;
+    const size_t data2 = shift_mix(*reinterpret_cast<const size_t*>(p + 8)* mul) * mul;
 
 	hash ^= data1;
 	hash *= mul;
