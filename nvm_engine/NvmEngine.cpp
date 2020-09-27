@@ -122,22 +122,12 @@ bool NvmEngine::append(const Slice & key , const Slice & value, uint32_t i , uin
     if(unlikely(!is_valid_index(index) || i == std::numeric_limits<uint32_t>::max()))
         return false;
 
-    auto old_i = bucket[i++].exchange(index);
-
     //write index
     uint32_t cnt = 0 ;
     // {
     // time_elasped<std::chrono::nanoseconds> tm{setindex_tm};
-    for (; cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
-        if(bucket[i]) continue;
-
-        uint32_t empty_val {0};
-        if(bucket[i].compare_exchange_weak(
-            empty_val, 
-            old_i , 
-            std::memory_order_release ,
-            std::memory_order_relaxed))
-            break;
+    for (uint32_t old_i = index; old_i &&  cnt < BUCKET_MAX ; ++cnt ,++i , i %= BUCKET_MAX){
+        old_i = bucket[i].exchange(old_i , std::memory_order_relaxed);
     }
     // }
     //oom
