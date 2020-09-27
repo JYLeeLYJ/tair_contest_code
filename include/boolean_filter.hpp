@@ -19,10 +19,7 @@ class bitmap_filter:disable_copy{
         }
 
         void set(std::size_t off) {
-            uint8_t v = value;
-            while(!value.compare_exchange_weak(
-                v , static_cast<uint8_t>(v | (1 << off)) , std::memory_order_release , std::memory_order_relaxed
-            ));
+            value.fetch_or(1 << off);
         }
     };
 public:
@@ -35,14 +32,12 @@ public:
 
     bool test(std::size_t i ) const{
         if(i >= max_index) return false;
-        std::size_t n = i / 8 , off = i % 8;
-        return _bitset[n].test(off);
+        return _bitset[i >> 3].test(i & 0x07);
     }
 
     void set(std::size_t i){
         if(i >= max_index) return ;
-        std::size_t n = i / 8 , off = i % 8;
-        _bitset[n].set(off);
+        _bitset[i >> 3].set(i & 0x07);
     }
     
 private:
