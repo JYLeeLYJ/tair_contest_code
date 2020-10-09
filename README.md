@@ -10,7 +10,7 @@
 **RANK:** 18/2170 
 **SCORE:** 82230
 
-* 线性开放定址法索引(baseline)
+* Hash索引:开放定址法+线性探测(baseline)
 * atomic代替索引分桶上锁
 * simple bloom filter减少set查找
 * SIMD多字节key_cmp_eq
