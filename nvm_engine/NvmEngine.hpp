@@ -9,7 +9,7 @@
 #include <atomic>
 
 #include "include/db.hpp"
-#include "include/boolean_filter.hpp"
+#include "include/bloom_filter.hpp"
 
 class NvmEngine : DB {
 public:

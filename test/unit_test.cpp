@@ -3,7 +3,7 @@
 
 #include "fmt/format.h"
 #include "include/db.hpp"
-#include "boolean_filter.hpp"
+#include "bloom_filter.hpp"
 #include "utils.hpp"
 
 #define MAIN(func) \
