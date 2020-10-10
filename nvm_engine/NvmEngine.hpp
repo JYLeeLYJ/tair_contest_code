@@ -25,6 +25,13 @@ public:
     ~NvmEngine();
 
 private:
+    #ifdef LOCAL_TEST
+    static constexpr size_t NVM_SIZE = 64ULL * 1024 ;
+    #else
+    static constexpr size_t NVM_SIZE = 64ULL * 1024 * 1024 * 1024 ;
+    #endif
+
+private:
     void recovery();
 };
 
