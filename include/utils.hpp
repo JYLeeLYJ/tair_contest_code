@@ -51,8 +51,20 @@ struct alignas(N) align_intergral_t{
 	}
 };
 
-static inline std::chrono::milliseconds operator "" _ms (unsigned long long ms){
+static inline constexpr std::chrono::milliseconds operator "" _ms (unsigned long long ms){
     return std::chrono::milliseconds{ms};
+}
+
+static inline constexpr size_t operator "" _GB (unsigned long long n){
+	return n * 1024 * 1024 * 1024 ;
+}
+
+static inline constexpr size_t operator "" _MB (unsigned long long n){
+	return n * 1024 * 1024;
+}
+
+static inline constexpr size_t operator "" _KB (unsigned long long n){
+	return n * 1024;
 }
 
 static inline bool fast_key_cmp_eq(const char * lhs , const char * rhs){
@@ -108,14 +120,6 @@ inline void *align( std::size_t alignment, std::size_t size,
     space -= padding;
     return ptr = reinterpret_cast< void * >( aligned );
 }
-
-// inline std::size_t
-// unaligned_load(const char* p)
-// {
-// std::size_t result;
-// __builtin_memcpy(&result, p, sizeof(result));
-// return result;
-// }
 
 inline std::size_t
 shift_mix(std::size_t v)

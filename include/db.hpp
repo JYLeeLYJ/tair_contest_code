@@ -6,7 +6,6 @@
 #include <string>
 
 #define KEY_SIZE 16
-#define VALUE_SIZE 80
 
 enum Status : unsigned char {
     Ok,
