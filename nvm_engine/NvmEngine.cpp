@@ -95,18 +95,15 @@ Status NvmEngine::update(const Slice & value , uint64_t hash , head_info * head 
         return OutOfMemory ;
 
     allocator[bucket_id].deallocate(n_block , head->beg);
-
+    auto new_head = *head ; 
+    new_head.beg = beg;
+    new_head.len = value.size();
+    
     //direct copy
     #ifdef LOCAL_TEST
     memcpy(&(file.value_blocks[beg]) , value.data() , value.size());
-    head->beg = beg ;
-    head->len = n_block_new;
+    memcpy(head , &new_head , sizeof(head_info));
     #else
-
-    auto new_head = *head ; 
-    new_head.beg = beg;
-    new_head.len = n_block_new;
-    
     pmem_memcpy_persist(&(file.value_blocks[beg]) , value.data() , value.size());
     pmem_memcpy_persist(head , &new_head , sizeof(head_info));
     #endif
@@ -148,4 +145,6 @@ Status NvmEngine::append(const Slice & key , const Slice & value , uint64_t hash
     return Ok;
 }
 
-NvmEngine::~NvmEngine() {}
+NvmEngine::~NvmEngine() {
+    pmem_unmap(file.base() , NVM_SIZE);
+}

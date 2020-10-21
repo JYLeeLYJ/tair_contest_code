@@ -24,7 +24,7 @@ template<
     std::size_t n_key_head, 
     std::size_t n_value_block>
 class kv_file_info{
-    void * p_base;
+    void * pbase;
 public :
     head_info * key_heads;
     value_block * value_blocks;
@@ -34,7 +34,7 @@ public:
     kv_file_info() = default;
 
     explicit kv_file_info(void * base , size_t sz) noexcept
-    : p_base(base) {
+    : pbase(base) {
         constexpr auto key_sz = sizeof(head_info) * n_key_head  , value_sz = sizeof(value_block) * n_value_block;
 
         base = (char *)base + 1_KB;
@@ -43,6 +43,10 @@ public:
         base = (char *)base + key_sz , sz -= key_sz;
         value_blocks = reinterpret_cast<value_block *>(align(sizeof(value_block) , value_sz, base,sz));
         if(!key_heads || !value_sz) perror("align failed.") , exit(0);
+    }
+
+    void * base() const{
+        return pbase;
     }
 };
 
