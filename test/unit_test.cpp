@@ -21,13 +21,15 @@
         func();\
         std::cout<<fmt::format("[SUCC][{}]" , #func) <<std::endl; \
     }catch(std::string &e) {\
-        std::cout << e <<std::endl; \
+        std::cout << fmt::format("[FAIL][{}] : {}" , #func , e ) <<std::endl; \
     }\
 
 #define ASSERT( cond ) \
-    if(!(cond)) throw fmt::format("[FAIL][{}] : ASSERT {} " ,__FUNCTION__ , #cond );
+    if(!(cond)) throw fmt::format("ASSERT {} " , #cond );
 
 //********************************************************************************
+
+std::vector<std::pair<Slice , Slice>> kv_pairs{};
 
 void test_get_set_simple() {
 
@@ -54,23 +56,21 @@ void test_get_set_simple() {
     };
 
     DB *db = nullptr;
+    
     FILE * f = fopen("./performance.log" , "w");
     DB::CreateOrOpen("./DB", &db , f);
     std::unique_ptr<DB> guard(db);
-    Slice k;
-    k.size() = 16;
 
     const int times = 100;
 
     //init keys
-    std::vector<Slice> keys{};
     for(uint i = 0 ; i < times; ++ i) {
-        keys.emplace_back(random_str(16) , 16);
+        kv_pairs.emplace_back(Slice{random_str(16) , 16} , Slice{});
     }
 
     //test append new
-    for(uint i = 0 ; i < times ; ++i){
-        Slice k = keys[i];
+    for(auto & kv : kv_pairs){
+        Slice k = kv.first;
         uint64_t len = rand() % 1024;
         Slice v{ random_str(len) , len};
         ASSERT(db->Set(k, v) == Ok);
@@ -81,21 +81,34 @@ void test_get_set_simple() {
     }
 
     //test update 
-    for(uint i = 0 ; i < times ; ++i){
-        Slice k = keys[i];
+    for(auto & kv : kv_pairs){
+        Slice k = kv.first;
         uint64_t len = rand() % 1024;
         Slice v{ random_str(len) , len};
         ASSERT(db->Set(k, v) == Ok);
         std::string a;
         ASSERT(db->Get(k, &a) == Ok);
         ASSERT(a == v.to_string());
-        free(v.data());
+        kv.second = v;
     }
+}
 
-    for(auto & k : keys){
-        free(k.data());
+void test_recovery(){
+    DB *db = nullptr;
+    FILE * f = fopen("./performance.log" , "w");
+    DB::CreateOrOpen("./DB", &db , f);
+    std::unique_ptr<DB> guard(db);
+
+    ASSERT(db);
+
+    for(auto & kv : kv_pairs){
+        std::string a{};
+        ASSERT(db->Get(kv.first, &a) == Ok);
+        ASSERT(a == kv.second.to_string());
+
+        free(kv.first.data());
+        free(kv.second.data());
     }
-
 }
 
 void test_boolean_filter(){
@@ -179,6 +192,7 @@ void test_allocator(){
 
 void main_get_set_unit(){
     TEST(test_get_set_simple);
+    TEST(test_recovery);
 }
 
 void main_unit_test(){

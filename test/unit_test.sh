@@ -5,6 +5,7 @@ INCLUDE_DIR="../include"
 LIB_PATH="../lib"
 
 rm -rf ./unit_test
+rm -rf ./DB
 
 g++ unit_test.cpp -o unit_test -L$LIB_PATH -I$INCLUDE_DIR -I$EXTERNEL_DIR -pthread -lengine -lpmem -I.. -DFMT_HEADER_ONLY -g -std=c++11 -O3 -mavx2
 

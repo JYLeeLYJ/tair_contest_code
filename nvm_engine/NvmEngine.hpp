@@ -79,14 +79,6 @@ private:
         return seq < n_key_per_bk ? seq + bucket_id * n_key_per_bk : index.null_id;
     }
 
-    // uint32_t new_value_blocks(uint32_t bucket_id , uint32_t n){
-    //     constexpr auto n_block_per_bk = N_VALUE/ BUCKET_CNT;
-    //     auto seq = bucket_infos[bucket_id].value_block_seq;
-    //     //allocator
-    //     bucket_infos[bucket_id].value_block_seq += n;
-    //     return bucket_infos[bucket_id].value_block_seq < n_block_per_bk ? seq + bucket_id * n_block_per_bk : index.null_id;
-    // }
-
 private:
 
     kv_file_info<N_KEY , N_VALUE> file;
