@@ -39,7 +39,7 @@ private:
     #else
     static constexpr size_t DRAM_SIZE = 8_GB;
     static constexpr size_t NVM_SIZE = 64_GB ;
-    static constexpr size_t KEY_AREA = 8_GB ;
+    static constexpr size_t KEY_AREA = 6_GB ;
     static constexpr size_t VALUE_AREA = NVM_SIZE - META_SIZE - KEY_AREA;
     #endif
 
@@ -59,8 +59,10 @@ private:
     };
 
 private:
+    using hash_t = hash_index<HASH_SIZE , N_IDINFO>;
+
     void recovery();
-    head_info * search(const Slice & key , uint64_t hash);
+    hash_t::index_info * search(const Slice & key , uint64_t hash) ;
     Status update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id);
     Status append(const Slice & key , const Slice & value , uint64_t hash , uint32_t bucket_id);
 
@@ -79,6 +81,10 @@ private:
         return seq < n_key_per_bk ? seq + bucket_id * n_key_per_bk : index.null_id;
     }
 
+    uint32_t alloc_value_blocks(uint32_t bucket_id , uint32_t n){
+        return allocator[bucket_id].allocate(n);
+    }
+
 private:
 
     kv_file_info<N_KEY , N_VALUE> file;
@@ -87,9 +93,9 @@ private:
     alignas(CACHELINE_SIZE)
     std::array<bucket_info , BUCKET_CNT> bucket_infos{};
     alignas(CACHELINE_SIZE)
-    std::array<value_block_allocator<N_KEY / BUCKET_CNT> , BUCKET_CNT> allocator;
+    std::array<value_block_allocator<N_VALUE / BUCKET_CNT> , BUCKET_CNT> allocator{};
 
-    hash_index<HASH_SIZE , N_IDINFO> index;
+    hash_t index;
 
     static_assert(sizeof(bucket_info) == 64 , "");
     static_assert(sizeof(bucket_infos) == 1_KB , "");
