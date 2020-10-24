@@ -85,11 +85,37 @@ void test_recovery(){
     for(auto & kv : kv_pairs){
         std::string a{};
         ASSERT(db->Get(kv.first, &a) == Ok);
+        // fmt::print("key = {}\n" , kv.first.to_string());
+        // fmt::print("{}\n" , kv.second.to_string());
+
         ASSERT(a == kv.second.to_string());
 
-        free(kv.first.data());
-        free(kv.second.data());
+        // free(kv.first.data());
+        // free(kv.second.data());
     }
+
+    char key_s[16];
+    memset(key_s, 'a' + 20, 16);
+    Slice k(key_s, 16);
+    char value_s[80];
+    memset(value_s, 'x', 80);
+    Slice v(value_s, 80);
+    ASSERT(db->Set(k, v) == Ok );
+
+    guard.reset();
+
+    DB::CreateOrOpen("./DB", &db , nullptr);
+    guard.reset(db);
+
+    for(auto & kv : kv_pairs){
+        std::string str{};
+        ASSERT(db->Get(kv.first , &str) == Ok);
+        ASSERT( str == kv.second.to_string());
+    }
+
+    std::string str{};
+    ASSERT(db->Get(k , &str) == Ok);
+    ASSERT(str == v.to_string());
 }
 
 void test_boolean_filter(){

@@ -4,6 +4,8 @@
 #include <array>
 #include <vector>
 #include <string>
+
+#include "fmt/format.h"
 #include "kvfile.hpp"
 
 //not thread safe
@@ -51,6 +53,10 @@ public:
 
     void recollect_256(uint32_t addr){
         free_block_256.push_back(addr);
+    }
+    
+    std::string space_use_log(){
+        return fmt::format("[{} , {} , remains {}]" , free_block_128.size() , free_block_256.size() , n_block - off );
     }
 
 private:

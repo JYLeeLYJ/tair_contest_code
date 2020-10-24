@@ -127,13 +127,12 @@ void test_set_get() {
     }
 }
 
-int main(int argc, char *argv[]) {
-
-    init_pool();
-
+void test_para_get_set(){
     FILE * log_file =  fopen("./performance.log", "w");
 
     DB::CreateOrOpen("./DB", &db, log_file);
+
+    std::unique_ptr<DB> guard{db};
 
     auto t1 = std::chrono::high_resolution_clock::now();
     test_set_pure();
@@ -141,7 +140,6 @@ int main(int argc, char *argv[]) {
 
     if(!is_correct){
         printf("[Correctness Failed.]");
-        return 0;
     }
 
     auto t3 = std::chrono::high_resolution_clock::now();
@@ -152,5 +150,32 @@ int main(int argc, char *argv[]) {
     using ms_t = duration<float , std::milli>;
     if(!is_correct) printf("[Correctness Failed.]");
     else printf("time set:%.2lf\ntime set/get:%.2lf\n", ms_t(t2 - t1).count(), ms_t(t4-t3).count());
+
+}
+
+void test_recovery(){
+
+    FILE * log_file =  fopen("./performance.log", "w");
+
+    DB::CreateOrOpen("./DB", &db, log_file);
+
+    std::unique_ptr<DB> guard{db};
+
+    test_set_get();
+
+    if(!is_correct){
+        printf("[Correctness Failed.]");
+    }
+
+}
+
+int main(int argc, char *argv[]) {
+
+    init_pool();
+
+    test_para_get_set();
+
+    test_recovery();
+
     return 0;
 }
