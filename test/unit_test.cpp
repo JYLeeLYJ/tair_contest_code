@@ -8,26 +8,7 @@
 #include "utils.hpp"
 #include "hash_index.hpp"
 #include "allocator.hpp"
-
-#define MAIN(func) \
-    try{\
-        func();\
-    }catch(std::exception &e) {\
-        std::cout << "\n*************\nGot exception:"<< e.what() <<std::endl; \
-    }\
-
-#define TEST(func) \
-    try{\
-        func();\
-        std::cout<<fmt::format("[SUCC][{}]" , #func) <<std::endl; \
-    }catch(std::string &e) {\
-        std::cout << fmt::format("[FAIL][{}] : {}" , #func , e ) <<std::endl; \
-    }\
-
-#define ASSERT( cond ) \
-    if(!(cond)) throw fmt::format("ASSERT {} " , #cond );
-
-//********************************************************************************
+#include "simple_test.hpp"
 
 std::vector<std::pair<Slice , Slice>> kv_pairs{};
 
@@ -179,15 +160,32 @@ void test_hash_index(){
 }
 
 void test_allocator(){
-    value_block_allocator<32> allctr{};
+    value_block_allocator<6> allctr{};
 
-    static_assert(sizeof(allctr) % 64 == 0);
+    allctr.init(32,0);
 
-    ASSERT(allctr.allocate(32) == 0);
-    ASSERT(allctr.allocate(1) == allctr.null_index);
-    allctr.deallocate(3,2);
+    static_assert(sizeof(allctr) == 64);
 
-    ASSERT(allctr.allocate(3) == 2);
+    ASSERT(allctr.allocate_128() == 32);
+    ASSERT(allctr.allocate_256() == 34);
+    ASSERT(allctr.allocate_256() == 36);
+
+    allctr.recollect_256(28);
+
+    ASSERT(allctr.allocate_128() == 33);
+    ASSERT(allctr.allocate_128() == 28);
+    ASSERT(allctr.allocate_128() == 29);
+
+    allctr.recollect_128(1024);
+    allctr.recollect_256(34);
+    
+    ASSERT(allctr.allocate_128() == 1024);
+    ASSERT(allctr.allocate_128() == 34);
+
+    ASSERT(allctr.allocate_128() == 35);
+    ASSERT(allctr.allocate_128() == allctr.null_index);
+    ASSERT(allctr.allocate_256() == allctr.null_index);
+
 }
 
 void main_get_set_unit(){
@@ -197,14 +195,14 @@ void main_get_set_unit(){
 
 void main_unit_test(){
     TEST(test_boolean_filter);
-    TEST(test_fast_key_cmp);
-    TEST(test_fast_mem_cpy);
-    TEST(test_hash_bytes);
+    // TEST(test_fast_key_cmp);
+    // TEST(test_fast_mem_cpy);
+    // TEST(test_hash_bytes);
     TEST(test_hash_index);
     TEST(test_allocator);
 }
 
 int main(){
-    MAIN(main_unit_test);
+    // MAIN(main_unit_test);
     MAIN(main_get_set_unit);
 }

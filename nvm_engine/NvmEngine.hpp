@@ -35,16 +35,20 @@ private:
     static constexpr size_t DRAN_SIZE = 256_MB;
     static constexpr size_t NVM_SIZE = 64_MB ;
     static constexpr size_t KEY_AREA = 8_MB;
-    static constexpr size_t VALUE_AREA = NVM_SIZE - META_SIZE - KEY_AREA;
+    static constexpr size_t INDEX_AREA = 8_MB;
+    static constexpr size_t VALUE_AREA = NVM_SIZE - META_SIZE - KEY_AREA - INDEX_AREA ;
     #else
     static constexpr size_t DRAM_SIZE = 8_GB;
     static constexpr size_t NVM_SIZE = 64_GB ;
     static constexpr size_t KEY_AREA = 6_GB ;
-    static constexpr size_t VALUE_AREA = NVM_SIZE - META_SIZE - KEY_AREA;
+    static constexpr size_t INDEX_AREA = 6_GB;
+    static constexpr size_t VALUE_AREA = NVM_SIZE - META_SIZE - KEY_AREA - INDEX_AREA ;
+    static_assert(VALUE_AREA > 50_GB , "" );
     #endif
 
     static constexpr size_t N_KEY = KEY_AREA / sizeof(head_info) ;
     static constexpr size_t N_VALUE = VALUE_AREA / sizeof(value_block);
+    static constexpr size_t N_BLOCK_INDEX = INDEX_AREA / sizeof(block_index);
     static constexpr size_t N_IDINFO = N_KEY;
 
     static constexpr size_t THREAD_CNT = 16;
@@ -54,8 +58,11 @@ private:
 private:
 
     struct alignas(CACHELINE_SIZE) bucket_info{
-        uint32_t index_info_seq{};
+        uint32_t hash_index_info_seq{};
         uint32_t key_seq{};
+        uint32_t block_index_seq{};
+
+        std::vector<uint32_t> free_index_blocks{};
     };
 
 private:
@@ -66,13 +73,18 @@ private:
     Status update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id);
     Status append(const Slice & key , const Slice & value , uint64_t hash , uint32_t bucket_id);
 
+    std::pair<uint32_t , block_index> alloc_value_blocks(uint32_t bucket_id , uint32_t len);
+    void recollect_value_blocks(uint32_t bucket_id , uint32_t index_block_id , uint32_t len);
+    void write_value(const Slice & value  ,uint32_t index_block_id ,block_index & indics );
+    void read_value(std::string & value , head_info * head);
+
     uint32_t get_bucket_id(){
         return thread_seq ++ % BUCKET_CNT;
     }
 
-    uint32_t new_index_info(uint32_t bucket_id){
+    uint32_t new_hash_index_info(uint32_t bucket_id){
         constexpr auto n_index_per_bk = N_IDINFO / BUCKET_CNT;
-        return (bucket_infos[bucket_id].index_info_seq ++) + bucket_id * n_index_per_bk;
+        return (bucket_infos[bucket_id].hash_index_info_seq ++) + bucket_id * n_index_per_bk;
     }
 
     uint32_t new_key_info(uint32_t bucket_id){
@@ -81,17 +93,13 @@ private:
         return seq < n_key_per_bk ? seq + bucket_id * n_key_per_bk : index.null_id;
     }
 
-    uint32_t alloc_value_blocks(uint32_t bucket_id , uint32_t n){
-        return allocator[bucket_id].allocate(n);
-    }
-
 private:
 
-    kv_file_info<N_KEY , N_VALUE> file;
+    kv_file_info<N_KEY , N_BLOCK_INDEX , N_VALUE> file;
     std::atomic<uint32_t> thread_seq{0};
 
     alignas(CACHELINE_SIZE)
-    std::array<bucket_info , BUCKET_CNT> bucket_infos{};
+    std::array<bucket_info , BUCKET_CNT> bucket_infos;
     alignas(CACHELINE_SIZE)
     std::array<value_block_allocator<N_VALUE / BUCKET_CNT> , BUCKET_CNT> allocator{};
 

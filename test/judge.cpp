@@ -125,7 +125,6 @@ void test_set_get() {
     for(auto & t : tids){
         t.join();
     }
-
 }
 
 int main(int argc, char *argv[]) {

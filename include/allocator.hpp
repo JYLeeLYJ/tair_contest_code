@@ -11,48 +11,56 @@ template<std::size_t n_block>
 class alignas(CACHELINE_SIZE) value_block_allocator{
 public:
     static constexpr uint32_t null_index = 0xffffffff;
-    static constexpr uint32_t num_block = n_block;
+    static constexpr uint32_t total_block_num = n_block;
 public:
     value_block_allocator() = default;
 
-    void reinit(uint32_t beg_ , uint32_t off_) noexcept{
-        beg = beg_; 
-        off = off_;
+    void init(uint32_t beg , uint32_t off){
+        this->beg = beg;
+        this->off = off;
     }
 
-    uint32_t allocate(std::size_t n) {
-        uint32_t addr {null_index};
-
-        if(n <= 8 && !free_space[n].empty()){
-            addr = free_space [n].back();
-            free_space[n].pop_back();
+    uint32_t allocate_128(){
+        uint32_t addr{null_index};
+        if(!free_block_128.empty()){ 
+            addr = free_block_128.back();
+            free_block_128.pop_back();
+        }else if((addr = allocate_256())!= null_index){
+            free_block_128.push_back(addr +1);
         }
-        else if(off + n <= n_block){
+
+        return addr ;
+    }
+
+    uint32_t allocate_256(){
+        uint32_t addr{null_index};
+
+        if(!free_block_256.empty()){
+            addr = free_block_256.back();
+            free_block_256.pop_back();
+        }else if(off + 1 < n_block){
             addr = beg + off;
-            off += n;
+            off += 2;
         }
-
         return addr;
     }
 
-
-    void deallocate(std::size_t n , uint32_t beg) {
-        free_space[n].push_back(beg);
+    void recollect_128(uint32_t addr){
+        free_block_128.push_back(addr);
     }
 
-    std::string print_space_use(){
-        std::string str{};
-        for(uint i = 1; i<=8 ; ++ i){
-            str.append(std::to_string(free_space[i].size())).append(" ");
-        }
-        return str.append("| ").append(std::to_string(n_block - off));
+    void recollect_256(uint32_t addr){
+        free_block_256.push_back(addr);
     }
 
 private:
-    //using 1 ~ 8 , denote 128 ~ 1024
-    std::array<std::vector<uint32_t> , 10> free_space{};
+
     uint32_t beg{0};
     uint32_t off{0};
+
+    std::vector<uint32_t> free_block_128;
+    std::vector<uint32_t> free_block_256;
+
 };
 
 #endif

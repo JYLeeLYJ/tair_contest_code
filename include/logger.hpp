@@ -104,6 +104,16 @@ private:
     FILE * file{nullptr};
 };
 
+template<class ...T>
+void Log(const char * format_str , T && ...args){
+    Logger::instance().log(fmt::format(format_str , std::forward<T>(args)...));
+}
+
+template<class ...T>
+void SyncLog(const char * format_str , T && ... args){
+    Logger::instance().sync_log(fmt::format(format_str , std::forward<T>(args)...));
+}
+
 template<class tm_unit_t>
 class time_elasped{
 
