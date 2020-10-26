@@ -26,7 +26,7 @@ void catch_segfault_error(int sig){
     exit(1);
 }
 
-constexpr auto LOG_SEQ = 3_MB;
+constexpr auto LOG_SEQ = 3000000 ;
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     Logger::instance().set_file(log_file);
@@ -77,7 +77,7 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     //make performance test failed
     static thread_local uint64_t cnt{0};
-    if(++cnt > 3_MB) return NotFound;
+    if(++cnt > 6_MB) return NotFound;
 
     auto hash = hash_bytes_16(key.data());
     auto head = search(key , hash);
@@ -135,7 +135,8 @@ head_info * NvmEngine::search(const Slice & key , uint64_t hash){
 
     // return nullptr;
 
-    uint32_t key_index = index.search(hash , [this , &key](uint32_t key_id ){
+    const auto prefix = *reinterpret_cast<const uint32_t *>(key.data());
+    uint32_t key_index = index.search(hash , prefix ,[this , &key](uint32_t key_id ){
         return fast_key_cmp_eq(file.key_heads[key_id].key , key.data());
     });
 
@@ -192,7 +193,8 @@ Status NvmEngine::append(const Slice & key , const Slice & value , uint64_t hash
     // const auto prefix = *reinterpret_cast<const prefix_t * >(key.data());
     // index.insert(hash % HASH_SIZE , new_hash_index_info(bucket_id) , key_index , prefix);
 
-    index.insert(hash , key_index);
+    const auto prefix = *reinterpret_cast<const uint32_t * >(key.data());
+    index.insert(hash , prefix ,key_index);
 
     return Ok;
 }
@@ -359,8 +361,9 @@ void NvmEngine::recovery(){
                 // auto hash = hash_bytes_16(head.key);
                 // index.insert( hash % HASH_SIZE , index_id , key_index , prefix);   
 
+                auto prefix = * reinterpret_cast<const uint32_t *>(head.key); 
                 auto hash = hash_bytes_16(head.key);
-                index.insert(hash , key_index);
+                index.insert(hash , prefix, key_index);
             }
 
             return result;

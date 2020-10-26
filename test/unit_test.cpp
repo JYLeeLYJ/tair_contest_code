@@ -220,14 +220,14 @@ void test_allocator(){
 void test_open_address_hash(){
     open_address_hash<32> index{};
 
-    index.insert(1,114);
-    index.insert(1,514);
+    index.insert(1,222 , 114);
+    index.insert(1,333 , 514);
 
-    ASSERT(index.search(1,[](uint32_t key_id){return key_id == 114; }) == 114 );
-    ASSERT(index.search(1,[](uint32_t key_id){return key_id == 514; }) == 514 );
+    ASSERT(index.search(1,222 ,[](uint32_t key_id){return key_id == 114; }) == 114 );
+    ASSERT(index.search(1,333 ,[](uint32_t key_id){return key_id == 514; }) == 514 );
 
-    ASSERT(index.search(3,[](uint32_t key_id){return key_id == 114; })== index.null_id);
-    ASSERT(index.search(1,[](uint32_t key_id){return key_id == 116; })== index.null_id);
+    ASSERT(index.search(1,333 ,[](uint32_t key_id){return key_id == 114; })== index.null_id);
+    ASSERT(index.search(1,222 ,[](uint32_t key_id){return key_id == 116; })== index.null_id);
 
     //more test : out of range...
 }
@@ -248,6 +248,6 @@ void main_unit_test(){
 }
 
 int main(){
-    MAIN(main_unit_test);
+    // MAIN(main_unit_test);
     MAIN(main_get_set_unit);
 }

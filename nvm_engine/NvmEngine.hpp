@@ -59,7 +59,7 @@ private:
 private:
 
     struct alignas(CACHELINE_SIZE) bucket_info{
-        uint32_t hash_index_info_seq{};
+        // uint32_t hash_index_info_seq{};
         uint32_t key_seq{};
         uint32_t block_index_seq{};
 
@@ -82,10 +82,10 @@ private:
         return thread_seq ++ % BUCKET_CNT;
     }
 
-    uint32_t new_hash_index_info(uint32_t bucket_id){
-        constexpr auto n_index_per_bk = N_IDINFO / BUCKET_CNT;
-        return (bucket_infos[bucket_id].hash_index_info_seq ++) + bucket_id * n_index_per_bk;
-    }
+    // uint32_t new_hash_index_info(uint32_t bucket_id){
+    //     constexpr auto n_index_per_bk = N_IDINFO / BUCKET_CNT;
+    //     return (bucket_infos[bucket_id].hash_index_info_seq ++) + bucket_id * n_index_per_bk;
+    // }
 
     uint32_t new_key_info(uint32_t bucket_id){
         constexpr auto n_key_per_bk = N_KEY / BUCKET_CNT;
