@@ -13,6 +13,7 @@
 #include "include/hash_index.hpp"
 #include "include/allocator.hpp"
 #include "include/open_address_hash_index.hpp"
+#include "include/bloom_filter.hpp"
 
 class NvmEngine : DB {
 public:
@@ -56,13 +57,14 @@ private:
     static constexpr size_t BUCKET_CNT = THREAD_CNT;
     static constexpr size_t HASH_SIZE = N_KEY /2;
 
+    static constexpr size_t BLOOM_FILTER_THRESHOLD = 10_MB;
+
 private:
 
     struct alignas(CACHELINE_SIZE) bucket_info{
         // uint32_t hash_index_info_seq{};
         uint32_t key_seq{};
         uint32_t block_index_seq{};
-
         std::vector<uint32_t> free_index_blocks{};
     };
 
@@ -104,7 +106,8 @@ private:
     std::array<value_block_allocator<N_VALUE / BUCKET_CNT> , BUCKET_CNT> allocator{};
 
     // hash_index<HASH_SIZE , N_IDINFO> index;
-    open_address_hash<N_KEY * 2> index;
+    open_address_hash<N_KEY> index;
+    bitmap_filter<N_KEY * 2> bitset{};
 
     static_assert(sizeof(bucket_info) == 64 , "");
     static_assert(sizeof(bucket_infos) == 1_KB , "");

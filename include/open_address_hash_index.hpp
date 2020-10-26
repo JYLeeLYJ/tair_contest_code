@@ -57,8 +57,8 @@ public:
         for(uint32_t i = hash % N , cnt = 0 ; cnt < N ; ++ cnt , ++i , i %= N ){
             if(bucket[i] == null_bucket) break;
             n = bucket[i];
-            if(info.first == prefix && key_cmp_eq(info.second))
-                return info.second;
+            if(info.first != prefix) continue;
+            if(key_cmp_eq(info.second)) return info.second;
         }
         return null_id;
     }

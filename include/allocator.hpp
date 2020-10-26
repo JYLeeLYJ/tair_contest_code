@@ -20,6 +20,9 @@ public:
     void init(uint32_t beg , uint32_t off){
         this->beg = beg;
         this->off = off;
+
+        free_block_128.reserve(7_MB);
+        free_block_256.reserve(7_MB);
     }
 
     uint32_t allocate_128(){
