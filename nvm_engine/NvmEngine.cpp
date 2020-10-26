@@ -26,7 +26,7 @@ void catch_segfault_error(int sig){
     exit(1);
 }
 
-constexpr auto LOG_SEQ = 3000000;
+constexpr auto LOG_SEQ = 3_MB;
 
 Status DB::CreateOrOpen(const std::string &name, DB **dbptr, FILE *log_file) {
     Logger::instance().set_file(log_file);
@@ -71,7 +71,7 @@ NvmEngine::NvmEngine(const std::string &name) {
     SyncLog("************* Start ***************");
 }
 
-static thread_local uint64_t set_cnt{0} , update_cnt{0};// search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
+static thread_local uint64_t set_cnt{0} , update_cnt{0}, search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
 
 Status NvmEngine::Get(const Slice &key, std::string *value) {
 
@@ -80,10 +80,9 @@ Status NvmEngine::Get(const Slice &key, std::string *value) {
     if(++cnt > 3_MB) return NotFound;
 
     auto hash = hash_bytes_16(key.data());
-    auto info = search(key , hash);
+    auto head = search(key , hash);
 
-    if(info){
-        auto head = &file.key_heads[info->index];
+    if(head){
         read_value(*value , head );
         return Ok;
     }else{
@@ -100,18 +99,17 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     static thread_local uint32_t bucket_id = get_bucket_id() ;
 
     if(unlikely(set_cnt++ % LOG_SEQ == 0)) 
-    Log("[Set] cnt = {}  , update cnt = {}", set_cnt , update_cnt );
-    // Log("[Set] cnt = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
-    //     set_cnt ,search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , allocator[bucket_id].space_use_log());
+    // Log("[Set] cnt = {} M  , update cnt = {}", static_cast<double>(set_cnt) / LOG_SEQ, update_cnt );
+    Log("[Set] cnt = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
+        set_cnt ,search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , allocator[bucket_id].space_use_log());
 
     
     auto hash = hash_bytes_16(key.data());
-    auto info = search(key , hash);
+    auto head = search(key , hash);
 
     Status sta{Ok};
-    if(info){
+    if(head){
         ++ update_cnt;
-        auto head = &file.key_heads[info->index];
         sta = update(value , hash , head , bucket_id);
     }
     else {
@@ -121,21 +119,27 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     return sta;
 }
 
-NvmEngine::hash_t::index_info * NvmEngine::search(const Slice & key , uint64_t hash){
+head_info * NvmEngine::search(const Slice & key , uint64_t hash){
 
-    // time_elasped<std::chrono::nanoseconds> tm{search_tm};
+    time_elasped<std::chrono::nanoseconds> tm{search_tm};
 
-    using prefix_t = decltype(decltype(index)::index_info{}.prefix);
-    const auto prefix = *reinterpret_cast<const prefix_t *>(key.data());
+    // using prefix_t = decltype(decltype(index)::index_info{}.prefix);
+    // const auto prefix = *reinterpret_cast<const prefix_t *>(key.data());
 
-    for(auto & info : index.get_bucket(hash % index.bucket_cnt)){
-        auto & head = file.key_heads[info.index];
-        if(info.prefix == prefix && fast_key_cmp_eq(key.data() , head.key)){
-            return & info;
-        }
-    }
+    // for(auto & info : index.get_bucket(hash % index.bucket_cnt)){
+    //     auto & head = file.key_heads[info.index];
+    //     if(info.prefix == prefix && fast_key_cmp_eq(key.data() , head.key)){
+    //         return & head;
+    //     }
+    // }
 
-    return nullptr;
+    // return nullptr;
+
+    uint32_t key_index = index.search(hash , [this , &key](uint32_t key_id ){
+        return fast_key_cmp_eq(file.key_heads[key_id].key , key.data());
+    });
+
+    return key_index == index.null_id ? nullptr : &file.key_heads[key_index];
 }
 
 Status NvmEngine::update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id){
@@ -184,15 +188,17 @@ Status NvmEngine::append(const Slice & key , const Slice & value , uint64_t hash
     pmem_memcpy_persist(&new_head , &head , sizeof(head_info));
     #endif
 
-    using prefix_t = decltype(decltype(index)::index_info{}.prefix);
-    const auto prefix = *reinterpret_cast<const prefix_t * >(key.data());
-    index.insert(hash % HASH_SIZE , new_hash_index_info(bucket_id) , key_index , prefix);
+    // using prefix_t = decltype(decltype(index)::index_info{}.prefix);
+    // const auto prefix = *reinterpret_cast<const prefix_t * >(key.data());
+    // index.insert(hash % HASH_SIZE , new_hash_index_info(bucket_id) , key_index , prefix);
+
+    index.insert(hash , key_index);
 
     return Ok;
 }
 
 std::pair<uint32_t , block_index> NvmEngine::alloc_value_blocks(uint32_t bucket_id , uint32_t len){
-    // time_elasped<std::chrono::nanoseconds> tm{allocate_tm};
+    time_elasped<std::chrono::nanoseconds> tm{allocate_tm};
 
     std::pair<uint32_t , block_index> result{};
     auto & free_block_list = bucket_infos[bucket_id].free_index_blocks;
@@ -231,7 +237,7 @@ std::pair<uint32_t , block_index> NvmEngine::alloc_value_blocks(uint32_t bucket_
 }
 
 void NvmEngine::recollect_value_blocks(uint32_t bucket_id , uint32_t index_block_id , uint32_t len){
-    // time_elasped<std::chrono::nanoseconds> tm{recollect_tm};
+    time_elasped<std::chrono::nanoseconds> tm{recollect_tm};
 
     auto & block = file.block_indices[index_block_id];
     
@@ -254,7 +260,7 @@ void NvmEngine::recollect_value_blocks(uint32_t bucket_id , uint32_t index_block
 
 void NvmEngine::write_value(const Slice & value  ,uint32_t index_block_id ,block_index & indics ){
 
-    // time_elasped<std::chrono::nanoseconds> tm{write_tm};
+    time_elasped<std::chrono::nanoseconds> tm{write_tm};
 
     #ifdef LOCAL_TEST
     #define MEMCPY memcpy
@@ -289,7 +295,7 @@ void NvmEngine::write_value(const Slice & value  ,uint32_t index_block_id ,block
 }
 
 void NvmEngine::read_value(std::string & value , head_info * head){
-    // time_elasped<std::chrono::nanoseconds> tm{read_tm};
+    time_elasped<std::chrono::nanoseconds> tm{read_tm};
 
     auto & block = file.block_indices[head->index_block_id];
     // uint n_256 = (head->value_len / sizeof(value_block))/2; //0 1 2 3
@@ -346,12 +352,15 @@ void NvmEngine::recovery(){
                 uint off = head.index_block_id - correspond_bk * n_index_block_per_bk;
                 result[correspond_bk].second = std::max(result[correspond_bk].second , off);
                 
-                auto index_id = new_hash_index_info(i);
+                // auto index_id = new_hash_index_info(i);
 
-                using prefix_t = decltype(decltype(index)::index_info{}.prefix);    //uint32_t
-                auto prefix = * reinterpret_cast<const prefix_t *>(head.key); 
+                // using prefix_t = decltype(decltype(index)::index_info{}.prefix);    //uint32_t
+                // auto prefix = * reinterpret_cast<const prefix_t *>(head.key); 
+                // auto hash = hash_bytes_16(head.key);
+                // index.insert( hash % HASH_SIZE , index_id , key_index , prefix);   
+
                 auto hash = hash_bytes_16(head.key);
-                index.insert( hash % HASH_SIZE , index_id , key_index , prefix);   
+                index.insert(hash , key_index);
             }
 
             return result;

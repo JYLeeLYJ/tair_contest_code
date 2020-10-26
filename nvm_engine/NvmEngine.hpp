@@ -12,6 +12,7 @@
 #include "include/kvfile.hpp"
 #include "include/hash_index.hpp"
 #include "include/allocator.hpp"
+#include "include/open_address_hash_index.hpp"
 
 class NvmEngine : DB {
 public:
@@ -66,10 +67,9 @@ private:
     };
 
 private:
-    using hash_t = hash_index<HASH_SIZE , N_IDINFO>;
 
     void recovery();
-    hash_t::index_info * search(const Slice & key , uint64_t hash) ;
+    head_info* search(const Slice & key , uint64_t hash) ;
     Status update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id);
     Status append(const Slice & key , const Slice & value , uint64_t hash , uint32_t bucket_id);
 
@@ -103,7 +103,8 @@ private:
     alignas(CACHELINE_SIZE)
     std::array<value_block_allocator<N_VALUE / BUCKET_CNT> , BUCKET_CNT> allocator{};
 
-    hash_t index;
+    // hash_index<HASH_SIZE , N_IDINFO> index;
+    open_address_hash<N_KEY * 2> index;
 
     static_assert(sizeof(bucket_info) == 64 , "");
     static_assert(sizeof(bucket_infos) == 1_KB , "");

@@ -9,6 +9,7 @@
 #include "hash_index.hpp"
 #include "allocator.hpp"
 #include "simple_test.hpp"
+#include "open_address_hash_index.hpp"
 
 std::vector<std::pair<Slice , Slice>> kv_pairs{};
 
@@ -72,6 +73,8 @@ void test_get_set_simple() {
         ASSERT(a == v.to_string());
         kv.second = v;
     }
+
+    fclose(f);
 }
 
 void test_recovery(){
@@ -214,6 +217,21 @@ void test_allocator(){
 
 }
 
+void test_open_address_hash(){
+    open_address_hash<32> index{};
+
+    index.insert(1,114);
+    index.insert(1,514);
+
+    ASSERT(index.search(1,[](uint32_t key_id){return key_id == 114; }) == 114 );
+    ASSERT(index.search(1,[](uint32_t key_id){return key_id == 514; }) == 514 );
+
+    ASSERT(index.search(3,[](uint32_t key_id){return key_id == 114; })== index.null_id);
+    ASSERT(index.search(1,[](uint32_t key_id){return key_id == 116; })== index.null_id);
+
+    //more test : out of range...
+}
+
 void main_get_set_unit(){
     TEST(test_get_set_simple);
     TEST(test_recovery);
@@ -226,9 +244,10 @@ void main_unit_test(){
     // TEST(test_hash_bytes);
     TEST(test_hash_index);
     TEST(test_allocator);
+    TEST(test_open_address_hash);
 }
 
 int main(){
-    // MAIN(main_unit_test);
+    MAIN(main_unit_test);
     MAIN(main_get_set_unit);
 }
