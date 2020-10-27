@@ -33,7 +33,7 @@ class kv_file_info{
 public :
     head_info * key_heads;
     value_block * value_blocks;
-    meta_info * meta;
+    // meta_info * meta;
 
 public:
 
@@ -43,12 +43,10 @@ public:
     : pbase(base) {
         constexpr auto key_sz = sizeof(head_info) * n_key_head  , value_sz = sizeof(value_block) * n_value_block;
 
-        base = (char *)base + 1_KB;
-        sz-= 1_KB;
         key_heads = reinterpret_cast<head_info*>(base) ; //reinterpret_cast<head_info *>(align(sizeof(head_info) , key_sz , base , sz));
         base = (char *)base + key_sz , sz -= key_sz;
         value_blocks = reinterpret_cast<value_block *>(align(256, value_sz, base,sz));
-        if(!key_heads || !value_sz ) perror("align failed.") , exit(0);
+        if(!key_heads || !value_blocks ) perror("align failed.") , exit(0);
     }
 
     void * base() const{

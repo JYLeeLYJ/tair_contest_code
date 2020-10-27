@@ -72,7 +72,7 @@ private:
 
     block_index alloc_value_blocks(uint32_t bucket_id , uint32_t len);
     void recollect_value_blocks(uint32_t bucket_id , head_info & head , uint32_t len);
-    void write_value(const Slice & value  , block_index & dst_block  ,block_index & indics );
+    void write_value(const Slice & value  , block_index & indics );
     void read_value(std::string & value , head_info & head);
 
     uint32_t get_bucket_id(){
