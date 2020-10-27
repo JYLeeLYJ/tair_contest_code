@@ -17,13 +17,13 @@
 
 void catch_bus_error(int sig){
     SyncLog("SIGBUS");
-    exit(1);
+    exit(114514);
 }
 
 void catch_segfault_error(int sig){
     SyncLog("SIGFAULT");
     Logger::instance().end_log();
-    exit(1);
+    exit(114514);
 }
 
 constexpr auto LOG_SEQ = 3000000 ;
@@ -64,27 +64,27 @@ NvmEngine::NvmEngine(const std::string &name) {
         recovery();
     else{
         for(uint32_t i = 0 ; i < BUCKET_CNT ; ++i ){
-            auto &allocator = bucket_infos[i].allocator;
-            allocator.init(i * allocator.total_block_num, 0);
+            bucket_infos[i].allocator.init(i * bucket_infos[i].allocator.total_block_num, 0);
         }
     }
 
     SyncLog("************* Start ***************");
 }
 
-static thread_local uint64_t set_cnt{0} , update_cnt{0}, search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
+static thread_local uint64_t cnt{0} , search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
 
 Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     //make performance test failed
-    static thread_local uint64_t cnt{0};
-    if(++cnt > 16_MB) return NotFound;
+    // static thread_local uint64_t cnt{0};
+    // if(++cnt > 16_MB) return NotFound;
+    ++cnt;
 
     auto hash = hash_bytes_16(key.data());
     auto head = search(key , hash);
 
     if(head){
-        read_value(*value , *head );
+        read_value(*value , head );
         return Ok;
     }else{
         return NotFound;
@@ -97,11 +97,11 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     static thread_local uint32_t bucket_id = get_bucket_id() ;
 
-    if(unlikely(set_cnt++ % LOG_SEQ == 0)) 
+    if(unlikely(cnt++ % LOG_SEQ == 0)) 
     // Log("[Set] cnt = {}  , key_seq = {}", set_cnt, bucket_infos[bucket_id].key_seq );
-    SyncLog("[Set] cnt = {} , key_seq = {} ,search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
-        set_cnt ,bucket_infos[bucket_id].key_seq ,search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , bucket_infos[bucket_id].allocator.space_use_log());
-
+    Log("cnt = {} , key_seq = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
+        cnt ,bucket_infos[bucket_id].key_seq , search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , bucket_infos[bucket_id].allocator.space_use_log());
+    
     auto hash = hash_bytes_16(key.data());
     head_info * head {nullptr} ;
     if(bitset.test(hash % bitset.max_index))
@@ -109,8 +109,7 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     Status sta{Ok};
     if(head){
-        ++ update_cnt;
-        sta = update(value , hash , *head , bucket_id);
+        sta = update(value , hash , head , bucket_id);
     }
     else {
         sta = append(key,value , hash , bucket_id);
@@ -120,6 +119,7 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 }
 
 head_info * NvmEngine::search(const Slice & key , uint64_t hash){
+
     time_elasped<std::chrono::nanoseconds> tm{search_tm};
 
     const auto prefix = *reinterpret_cast<const uint32_t *>(key.data());
@@ -130,30 +130,24 @@ head_info * NvmEngine::search(const Slice & key , uint64_t hash){
     return key_index == index.null_id ? nullptr : &file.key_heads[key_index];
 }
 
-Status NvmEngine::update(const Slice & value , uint64_t hash , head_info & head , uint32_t bucket_id){
+Status NvmEngine::update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id){
 
     auto block = alloc_value_blocks(bucket_id , value.size());
     if(unlikely(is_invalid_block(block)))
         return OutOfMemory;
 
-    head_info new_head = head; 
-    new_head.index_flag = !head.index_flag;
+    auto new_head = *head ; 
+    new_head.index_flag = !head->index_flag;
     new_head.value_len = value.size();
-    new_head.index[new_head.index_flag] = block;
     
-    recollect_value_blocks(bucket_id , head , head.value_len);
-    write_value(value ,block);
+    write_value(value , head->index[new_head.index_flag] , block);
+    recollect_value_blocks(bucket_id , head->index[head->index_flag] , head->value_len);
 
     //exchange
     #ifdef LOCAL_TEST
-    // memcpy(&head.index[!head.index_flag] , &block , sizeof(block_index));
-    // memcpy(&head.index_flag, &new_head.index_flag , 8);
-    memcpy(&head , &new_head , sizeof(head_info));
+    memcpy(&(head->index_flag) , &new_head.index_flag , 8);
     #else
-    // pmem_memcpy_nodrain(&head.index[!head.index_flag] , &block , sizeof(block_index));
-    // pmem_drain();
-    // pmem_memcpy_persist(&head.index_flag, &new_head.index_flag , 8);
-    pmem_memcpy_persist(&head , &new_head , sizeof(head_info));
+    pmem_memcpy_persist(&(head->index_flag) , &new_head.index_flag , 8);
     #endif
 
     return Ok;
@@ -166,75 +160,72 @@ Status NvmEngine::append(const Slice & key , const Slice & value , uint64_t hash
     auto block = alloc_value_blocks(bucket_id , value.size());
     if(unlikely(is_invalid_block(block)))
         return OutOfMemory;
-
-    //prepare key head
+    
+    //prepare key
+    auto & new_head = file.key_heads[key_index];
     head_info head{};
-    head.value_len = value.size();
     head.index_flag = false;
+    head.value_len = value.size();
     memcpy_avx_16(head.key , key.data());
     head.index[0] = block;
 
-    auto & new_head = file.key_heads[key_index];
-
-    write_value(value , block);
+    write_value(value , new_head.index[0] , block);
 
     #ifdef LOCAL_TEST
-    memcpy(&new_head , &head , sizeof(head_info));
+    memcpy(&new_head , &head , 24);
     #else
-    pmem_memcpy_persist(&new_head , &head , sizeof(head_info));
+    pmem_memcpy_persist(&new_head , &head , 24);
     #endif
 
     const auto prefix = *reinterpret_cast<const uint32_t * >(key.data());
     index.insert(hash , prefix ,key_index);
     bitset.set(hash % bitset.max_index);
-
     return Ok;
 }
 
 block_index NvmEngine::alloc_value_blocks(uint32_t bucket_id , uint32_t len){
     time_elasped<std::chrono::nanoseconds> tm{allocate_tm};
+
     block_index block{};
-    auto & allocator = bucket_infos[bucket_id].allocator;
 
     static_assert(sizeof(value_block) == 128 , "");
     auto n_block = (len >> 7) + 1;
 
     uint off = 0;
     switch(n_block >> 1){
-    case 4:         block[3] = allocator.allocate_256(); //8
-    case 3: ++off;  block[2] = allocator.allocate_256(); //6,7
-    case 2: ++off;  block[1] = allocator.allocate_256(); //4,5
-    case 1: ++off;  block[0] = allocator.allocate_256(); //2,3
+    case 4:         block[3] = bucket_infos[bucket_id].allocator.allocate_256(); //8
+    case 3: ++off;  block[2] = bucket_infos[bucket_id].allocator.allocate_256(); //6,7
+    case 2: ++off;  block[1] = bucket_infos[bucket_id].allocator.allocate_256(); //4,5
+    case 1: ++off;  block[0] = bucket_infos[bucket_id].allocator.allocate_256(); //2,3
     default:break;
     }
 
-    if(n_block & 1) block[off] = allocator.allocate_128();
+    if(n_block & 1)
+        block[off] = bucket_infos[bucket_id].allocator.allocate_128();
 
     return block;
 }
 
-void NvmEngine::recollect_value_blocks(uint32_t bucket_id  , head_info & head , uint32_t len){
+void NvmEngine::recollect_value_blocks(uint32_t bucket_id , block_index & block, uint32_t len){
     time_elasped<std::chrono::nanoseconds> tm{recollect_tm};
-
-    auto & allocator = bucket_infos[bucket_id].allocator;
-    auto & block = head.index[head.index_flag];
 
     static_assert(sizeof(value_block) == 128 , "");
     const auto n_block = (len >> 7) + 1;
     uint off = 0;
     switch(n_block >> 1){
-    case 4:         allocator.recollect_256(block[3]); //8
-    case 3: ++off;  allocator.recollect_256(block[2]); //6,7
-    case 2: ++off;  allocator.recollect_256(block[1]); //4,5
-    case 1: ++off;  allocator.recollect_256(block[0]); //2,3
+    case 4:         bucket_infos[bucket_id].allocator.recollect_256(block[3]); //8
+    case 3: ++off;  bucket_infos[bucket_id].allocator.recollect_256(block[2]); //6,7
+    case 2: ++off;  bucket_infos[bucket_id].allocator.recollect_256(block[1]); //4,5
+    case 1: ++off;  bucket_infos[bucket_id].allocator.recollect_256(block[0]); //2,3
     default:break;
     }
 
     if(n_block & 1)
-        allocator.recollect_128(block[off]);
+        bucket_infos[bucket_id].allocator.recollect_128(block[off]);
 }
 
-void NvmEngine::write_value(const Slice & value  , block_index & indics ){
+void NvmEngine::write_value(const Slice & value , block_index & block ,block_index & indics ){
+
     time_elasped<std::chrono::nanoseconds> tm{write_tm};
 
     #ifdef LOCAL_TEST
@@ -242,6 +233,8 @@ void NvmEngine::write_value(const Slice & value  , block_index & indics ){
     #else
     #define MEMCPY pmem_memcpy_nodrain
     #endif
+    
+    MEMCPY(&block, &indics , sizeof(block_index));
     
     static_assert(sizeof(value_block) == 128 , "");
     // const uint n_block = value.size() / sizeof(value_block) + 1;
@@ -267,15 +260,16 @@ void NvmEngine::write_value(const Slice & value  , block_index & indics ){
     #undef MEMCPY
 }
 
-void NvmEngine::read_value(std::string & value , head_info & head){
+void NvmEngine::read_value(std::string & value , head_info * head){
     time_elasped<std::chrono::nanoseconds> tm{read_tm};
-    const auto & block = head.index[head.index_flag];
+
+    auto & block = head->index[head->index_flag];
     // uint n_256 = (head->value_len / sizeof(value_block))/2; //0 1 2 3
-    const uint n_256 = head.value_len >> 8;
+    const uint n_256 = head->value_len >> 8;
 
     value.clear();
-    value.reserve(head.value_len);
-    uint res_len = head.value_len;
+    value.reserve(head->value_len);
+    uint res_len = head->value_len;
     for(uint i = 0; i < n_256; ++i , res_len -= 256){
         value.append(reinterpret_cast<const char *>(&file.value_blocks[block[i]]) , 256);
     }
@@ -287,35 +281,36 @@ void NvmEngine::read_value(std::string & value , head_info & head){
 void NvmEngine::recovery(){
 
     SyncLog("recovery ...");
+    std::array< std::thread  , BUCKET_CNT> ts;
     
-    using max_off_array_t = std::vector<uint32_t> ;
-    max_off_array_t final_off(16);
+    using max_off_array_t = std::array<uint32_t , BUCKET_CNT> ;
+    max_off_array_t final_off{};
 
     std::vector<std::future<max_off_array_t>> grid{};
 
-    for(uint bucket_id = 0 ; bucket_id < BUCKET_CNT ; ++ bucket_id){
-        grid.emplace_back(std::async([this , bucket_id]() -> max_off_array_t {
+    for(uint i = 0 ; i < BUCKET_CNT ; ++i){
+        grid.emplace_back(std::async([this , i]() -> max_off_array_t {
 
-            max_off_array_t result(16);
+            max_off_array_t result{};
 
             //read head and build index
             for(uint j = 0 ; j < N_KEY / BUCKET_CNT ; ++j){
-                auto key_index = new_key_info(bucket_id);
+                auto key_index = new_key_info(i);
                 auto & head = file.key_heads[key_index];
 
                 //last invalid value
                 if(head.value_len == 0){
-                    --bucket_infos[bucket_id].key_seq ;
+                    --bucket_infos[i].key_seq ;
                     break;
                 }
 
-                const uint32_t n_block = (head.value_len / sizeof(value_block)+1) /2;
-                const auto & block = head.index[head.index_flag];
-                for(uint i = 0 ; i < n_block ; ++ i){
-                    constexpr uint n_block_per_bk = N_VALUE / BUCKET_CNT;
-                    uint correspond_bk = block[i] / n_block_per_bk;
-                    uint off = block[i] - correspond_bk * n_block_per_bk;
-                    result[correspond_bk] = std::max(result[correspond_bk] , off);
+                auto & block_ids = head.index[head.index_flag];
+
+                for(auto value_id : block_ids){
+                    constexpr uint n_block_per_bk = decltype(bucket_info::allocator)::total_block_num;
+                    uint correspond_bk = value_id / n_block_per_bk;
+                    uint off = value_id - correspond_bk * n_block_per_bk;
+                    result[correspond_bk]= std::max(result[correspond_bk], off);
                 }
 
                 auto prefix = * reinterpret_cast<const uint32_t *>(head.key); 
@@ -334,14 +329,15 @@ void NvmEngine::recovery(){
     for(auto & f: grid ){
         auto off_arr = f.get();
         for(uint32_t i = 0 ; i< final_off.size() ; ++i){
-            final_off[i] =  std::max(final_off[i] , off_arr[i]); 
+            final_off[i] = 
+                std::max(final_off[i], off_arr[i]) ; 
         }
     }
 
     //retrive offset with some waste
     for(uint32_t i = 0 ; i < BUCKET_CNT ; ++i ){
-        constexpr uint32_t n_block_per_bucket = N_VALUE / BUCKET_CNT;
-        bucket_infos[i].allocator.init(i * n_block_per_bucket , final_off[i] + 2);
+        auto & allocator = bucket_infos[i].allocator;
+        allocator.init( i * allocator.total_block_num , final_off[i] + 2);
     }
 
     uint32_t n_retrive = std::accumulate(
