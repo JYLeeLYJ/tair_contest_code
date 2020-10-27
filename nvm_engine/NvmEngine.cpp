@@ -71,19 +71,18 @@ NvmEngine::NvmEngine(const std::string &name) {
     SyncLog("************* Start ***************");
 }
 
-static thread_local uint64_t cnt{0} , search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
+static thread_local uint64_t set_cnt{0} , search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
 
 Status NvmEngine::Get(const Slice &key, std::string *value) {
 
     //make performance test failed
-    // static thread_local uint64_t cnt{0};
-    // if(++cnt > 16_MB) return NotFound;
-    ++cnt;
+    static thread_local uint64_t cnt{0};
+    if(unlikely(++cnt > 16_MB)) return NotFound;
 
     auto hash = hash_bytes_16(key.data());
     auto head = search(key , hash);
 
-    if(head){
+    if(likely(head)){
         read_value(*value , head );
         return Ok;
     }else{
@@ -97,10 +96,11 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     static thread_local uint32_t bucket_id = get_bucket_id() ;
 
-    if(unlikely(cnt++ % LOG_SEQ == 0)) 
+    if(unlikely(set_cnt++ % LOG_SEQ == 0)) 
     // Log("[Set] cnt = {}  , key_seq = {}", set_cnt, bucket_infos[bucket_id].key_seq );
-    Log("cnt = {} , key_seq = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
-        cnt ,bucket_infos[bucket_id].key_seq , search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , bucket_infos[bucket_id].allocator.space_use_log());
+    Log("[Set] cnt = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
+        set_cnt ,search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , bucket_infos[bucket_id].allocator.space_use_log());
+
     
     auto hash = hash_bytes_16(key.data());
     head_info * head {nullptr} ;

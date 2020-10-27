@@ -96,11 +96,11 @@ private:
     alignas(CACHELINE_SIZE)
     std::array<bucket_info , BUCKET_CNT> bucket_infos;
 
-    open_address_hash<N_KEY> index;
-    bitmap_filter<N_KEY * 2> bitset{};
+    open_address_hash<N_KEY * 2> index;
+    bitmap_filter<N_KEY * 8> bitset{};
 
-    // static_assert(sizeof(bucket_info) == 64 , "");
-    // static_assert(sizeof(bucket_infos) == 1_KB , "");
+    static_assert(sizeof(bucket_info) == 64 , "");
+    static_assert(sizeof(bucket_infos) == 1_KB , "");
 
 };
 
