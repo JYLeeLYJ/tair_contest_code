@@ -10,7 +10,7 @@
 
 //not thread safe
 template<std::size_t n_block>
-class alignas(CACHELINE_SIZE) value_block_allocator{
+class value_block_allocator{
 public:
     static constexpr uint32_t null_index = 0xffffffff;
     static constexpr uint32_t total_block_num = n_block;
