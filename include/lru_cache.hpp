@@ -55,8 +55,7 @@ public:
     }
 
     T * get(K key){
-        // auto *node = hashmap_[key];
-        auto p = hashmap_.find(key);
+        auto *node = hashmap_[key];
         if(node){
             detach(node);
             attach(node);

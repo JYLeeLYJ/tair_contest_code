@@ -70,19 +70,18 @@ NvmEngine::NvmEngine(const std::string &name) {
     SyncLog("************* Start ***************");
 }
 
-static thread_local uint64_t set_cnt{0} ,search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
-static thread_local uint64_t cache_targe_cnt{0};
-static thread_local uint64_t get_search_tm{0};
-constexpr uint64_t _Milli = 1000000;
+// static thread_local uint64_t set_cnt{0} ,search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
+// static thread_local uint64_t get_search_tm{0};
+// constexpr uint64_t _Milli = 1000000;
 
 Status NvmEngine::Get(const Slice &key, std::string *value) {
     static thread_local lru_cache_t cache;
 
     //make performance test failed
-    static thread_local uint64_t cnt{0};
-    if(unlikely(++cnt > 16_MB)) return NotFound;
-    if(unlikely( cnt % 3000000 == 0))
-    Log("[Get] cnt = {} , get search tm = {} ms,  lru free space {}" , cnt , get_search_tm / _Milli ,  cache.free_space());
+    // static thread_local uint64_t cnt{0};
+    // if(unlikely(++cnt > 16_MB)) return NotFound;
+    // if(unlikely( cnt % 3000000 == 0))
+    // Log("[Get] cnt = {} , get search tm = {} ms,  lru free space {}" , cnt , get_search_tm / _Milli ,  cache.free_space());
 
     auto hash = hash_bytes_16(key.data());
     // auto head = search(key , hash);
@@ -100,15 +99,13 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
 
     static thread_local uint32_t bucket_id = get_bucket_id() ;
 
-    if(unlikely(set_cnt++ % LOG_SEQ == 0)) 
+    // if(unlikely(set_cnt++ % LOG_SEQ == 0)) 
     // Log("[Set] cnt = {} " , set_cnt);
-    Log("[Set] cnt = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
-        set_cnt ,search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , bucket_infos[bucket_id].allocator.space_use_log());
+    // Log("[Set] cnt = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
+    //     set_cnt ,search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , bucket_infos[bucket_id].allocator.space_use_log());
     
     auto hash = hash_bytes_16(key.data());
-    uint32_t key_index {index.null_id};
-    if(bitset.test(hash % bitset.max_index))
-        key_index = search(key , hash);
+    uint32_t key_index = search(key , hash);
 
     Status sta{Ok};
     if(key_index != index.null_id){
@@ -121,22 +118,22 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     return sta;
 }
 
-uint32_t NvmEngine::search(const Slice & key , uint64_t hash){
-    time_elasped<std::chrono::nanoseconds> tm{search_tm};
+inline uint32_t NvmEngine::search(const Slice & key , uint64_t hash){
+    // time_elasped<std::chrono::nanoseconds> tm{search_tm};
     const auto prefix = *reinterpret_cast<const uint32_t *>(key.data());
     return index.search(hash , prefix ,[this , &key](uint32_t key_id ){
         return fast_key_cmp_eq(file.key_heads[key_id].key , key.data());
     });
 }
 
-uint32_t NvmEngine::search_get(const Slice & key , uint64_t hash , lru_cache_t & cache){
-    time_elasped<std::chrono::nanoseconds> tm{get_search_tm};
+inline uint32_t NvmEngine::search_get(const Slice & key , uint64_t hash , lru_cache_t & cache){
+    // time_elasped<std::chrono::nanoseconds> tm{get_search_tm};
     const auto prefix = *reinterpret_cast<const uint32_t *>(key.data());
-    return index.search(hash , prefix ,[this , &key , &cache](uint32_t key_id ){
+    return index.search(hash , prefix , //[](uint32_t i){return true;}
+    [this , &key , &cache](uint32_t key_id ){
         auto info = cache.get(key_id);
-        if(info)    
-            // return fast_key_cmp_eq(info->key , key.data());
-            return true;
+        if(likely(info))    
+            return fast_key_cmp_eq(info->key , key.data());
         else        
             return fast_key_cmp_eq(file.key_heads[key_id].key , key.data());
     });
@@ -159,13 +156,14 @@ Status NvmEngine::update(const Slice & value , uint64_t hash , uint32_t key_inde
     write_value(value , head->index[new_head.index_flag] , block);
     recollect_value_blocks(bucket_id , head->index[head->index_flag] , head->value_len);
 
-    //head info = 64 , directly flush whole head info
+    //head info size = 64 , directly flush whole head info
     #ifdef LOCAL_TEST
     // memcpy(&(head->index_flag) , &new_head.index_flag , 8);
     memcpy(head , &new_head , sizeof(head_info));
     #else
     // pmem_memcpy_persist(&(head->index_flag) , &new_head.index_flag , 8);
     pmem_memcpy_persist(head , &new_head , sizeof(head_info));
+    // pmem_memcpy(head , &new_head , sizeof(head_info) , PMEM_F_MEM_WB);
     #endif
 
     ver_seq[key_index].fetch_add(1 , std::memory_order_relaxed);
@@ -198,12 +196,11 @@ Status NvmEngine::append(const Slice & key , const Slice & value , uint64_t hash
 
     const auto prefix = *reinterpret_cast<const uint32_t * >(key.data());
     index.insert(hash , prefix ,key_index);
-    bitset.set(hash % bitset.max_index);
     return Ok;
 }
 
 block_index NvmEngine::alloc_value_blocks(uint32_t bucket_id , uint32_t len){
-    time_elasped<std::chrono::nanoseconds> tm{allocate_tm};
+    // time_elasped<std::chrono::nanoseconds> tm{allocate_tm};
 
     block_index block{};
 
@@ -226,7 +223,7 @@ block_index NvmEngine::alloc_value_blocks(uint32_t bucket_id , uint32_t len){
 }
 
 void NvmEngine::recollect_value_blocks(uint32_t bucket_id , block_index & block, uint32_t len){
-    time_elasped<std::chrono::nanoseconds> tm{recollect_tm};
+    // time_elasped<std::chrono::nanoseconds> tm{recollect_tm};
 
     static_assert(sizeof(value_block) == 128 , "");
     const auto n_block = (len >> 7) + 1;
@@ -245,7 +242,7 @@ void NvmEngine::recollect_value_blocks(uint32_t bucket_id , block_index & block,
 
 void NvmEngine::write_value(const Slice & value , block_index & block ,block_index & indics ){
 
-    time_elasped<std::chrono::nanoseconds> tm{write_tm};
+    // time_elasped<std::chrono::nanoseconds> tm{write_tm};
 
     #ifdef LOCAL_TEST
     #define MEMCPY memcpy
@@ -278,7 +275,7 @@ void NvmEngine::write_value(const Slice & value , block_index & block ,block_ind
 }
 
 void NvmEngine::read_value(const Slice & key ,std::string & value , uint32_t key_index , lru_cache_t & cache){
-    time_elasped<std::chrono::nanoseconds> tm{read_tm};
+    // time_elasped<std::chrono::nanoseconds> tm{read_tm};
 
     auto info = cache.get(key_index);
     if(likely(info && info->ver == ver_seq[key_index].load(std::memory_order_relaxed))){

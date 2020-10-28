@@ -117,13 +117,7 @@ private:
     alignas(CACHELINE_SIZE)
     std::array<bucket_info , BUCKET_CNT> bucket_infos;
 
-    // alignas(CACHELINE_SIZE)
-    // std::array<lru_cache<uint32_t , cache_info , cache_size > , BUCKET_CNT> cache; // 1GB
-
-
     open_address_hash<N_KEY * 2> index;     // 3.6GB
-    bitmap_filter<N_KEY * 8> bitset{};      // 228MB
-
     std::unique_ptr<std::atomic<uint32_t>[]> ver_seq;   //896MB
 
     static_assert(sizeof(bucket_info) == 64 , "");
