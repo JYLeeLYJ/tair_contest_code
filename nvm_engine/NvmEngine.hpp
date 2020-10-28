@@ -15,6 +15,8 @@
 #include "include/open_address_hash_index.hpp"
 #include "include/bloom_filter.hpp"
 
+#include "tbb/concurrent_hash_map.h"
+
 class NvmEngine : DB {
 public:
     /**
@@ -64,6 +66,7 @@ private:
 private:
 
     void recovery();
+    void first_init();
     head_info* search(const Slice & key , uint64_t hash) ;
     Status update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id);
     Status append(const Slice & key , const Slice & value , uint64_t hash , uint32_t bucket_id);
@@ -96,11 +99,13 @@ private:
     alignas(CACHELINE_SIZE)
     std::array<bucket_info , BUCKET_CNT> bucket_infos;
 
-    open_address_hash<N_KEY * 2> index;
-    bitmap_filter<N_KEY * 8> bitset{};
+    open_address_hash<N_KEY * 2> index;     // 3.6GB
+    bitmap_filter<N_KEY * 8> bitset{};      // 228MB
 
     static_assert(sizeof(bucket_info) == 64 , "");
     static_assert(sizeof(bucket_infos) == 1_KB , "");
+
+    tbb::concurrent_hash_map<uint64_t , head_info> cache;
 
 };
 

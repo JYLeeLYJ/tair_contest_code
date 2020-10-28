@@ -15,11 +15,11 @@ class bitmap_filter:disable_copy{
         :value(0){}
 
         bool test(std::size_t off) const{
-            return value & (1 << off);
+            return value.load(std::memory_order_relaxed) & (1 << off);
         }
 
         void set(std::size_t off) {
-            value.fetch_or(1 << off);
+            value.fetch_or(1 << off , std::memory_order_relaxed);
         }
     };
 public:

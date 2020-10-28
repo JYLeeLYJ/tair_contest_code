@@ -21,7 +21,6 @@ public:
         this->beg = beg;
         this->off = off;
 
-        free_block_128.reserve(7_MB);
         free_block_256.reserve(7_MB);
     }
 
@@ -30,8 +29,10 @@ public:
         if(!free_block_128.empty()){ 
             addr = free_block_128.back();
             free_block_128.pop_back();
-        }else if((addr = allocate_256())!= null_index){
-            free_block_128.push_back(addr +1);
+        }else{
+            addr = allocate_256();
+            if(likely(addr != null_index))
+                free_block_128.push_back(addr +1);
         }
 
         return addr ;
