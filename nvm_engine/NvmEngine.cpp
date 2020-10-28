@@ -63,30 +63,43 @@ NvmEngine::NvmEngine(const std::string &name) {
     else
         first_init();
 
-    // auto arr = new uint32_t[N_KEY];
-    // memset(arr , 0 , sizeof(arr));
-    // ver_seq.reset(reinterpret_cast<std::atomic<uint32_t> *>(arr));
+    auto arr = new uint32_t[N_KEY];
+    memset(arr , 0 , sizeof(uint32_t) * N_KEY);
+    ver_seq.reset(reinterpret_cast<std::atomic<uint32_t> *>(arr));
 
     SyncLog("************* Start ***************");
 }
 
-static thread_local uint64_t set_cnt{0} , search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
-
+static thread_local uint64_t set_cnt{0} ;//, search_tm{0} , write_tm{0} , read_tm{0} , allocate_tm{0} , recollect_tm{0} ;
+static thread_local uint64_t cache_targe_cnt{0};
 Status NvmEngine::Get(const Slice &key, std::string *value) {
 
+    static thread_local lru_cache_t cache;
+
     //make performance test failed
-    // static thread_local uint64_t cnt{0};
-    // if(unlikely(++cnt > 16_MB)) return NotFound;
+    static thread_local uint64_t cnt{0};
+    if(unlikely(++cnt > 16_MB)) return NotFound;
+    if(unlikely( cnt % 1000000 == 0))
+    Log("[Get] cnt = {} , cache_target {}" , cnt , cache_targe_cnt);
 
     auto hash = hash_bytes_16(key.data());
-    auto head = search(key , hash);
+    // auto head = search(key , hash);
 
-    if(likely(head)){
-        read_value(*value , head );
+    const auto prefix = *reinterpret_cast<const uint32_t *>(key.data());
+    uint32_t key_index = index.search(hash , prefix ,[this , &key ](uint32_t key_id ){
+        auto info = cache.get(key_id);
+        if(info)    
+            // return fast_key_cmp_eq(info->key , key.data());
+            return true;
+        else        
+            return fast_key_cmp_eq(file.key_heads[key_id].key , key.data());
+    });
+
+    if(likely(key_index != index.null_id)){
+        read_value(key , *value , key_index , cache);
         return Ok;
-    }else{
+    }else
         return NotFound;
-    }
 }
 
 constexpr uint64_t _Milli = 1000000;
@@ -99,17 +112,15 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     Log("[Set] cnt = {} " , set_cnt);
     // Log("[Set] cnt = {} , search_tm={}ms ,write_tm={}ms ,read_tm={}ms ,alloc_tm={}ms ,recollect_tm={}ms , GC{}"  , 
         // set_cnt ,search_tm / _Milli , write_tm /_Milli ,read_tm /_Milli , allocate_tm /_Milli , recollect_tm /_Milli , bucket_infos[bucket_id].allocator.space_use_log());
-    // Log("[Set] cnt = {} , search = {}ms , read = {} ms , append = {} ms , write = {} ms " , 
-    //     set_cnt , search_tm / _Milli , );
     
     auto hash = hash_bytes_16(key.data());
-    head_info * head {nullptr} ;
+    uint32_t key_index {index.null_id};
     if(bitset.test(hash % bitset.max_index))
-        head = search(key , hash);
+        key_index = search(key , hash);
 
     Status sta{Ok};
-    if(head){
-        sta = update(value , hash , head , bucket_id);
+    if(key_index != index.null_id){
+        sta = update(value , hash , key_index , bucket_id);
     }
     else {
         sta = append(key,value , hash , bucket_id);
@@ -118,23 +129,21 @@ Status NvmEngine::Set(const Slice &key, const Slice &value) {
     return sta;
 }
 
-head_info * NvmEngine::search(const Slice & key , uint64_t hash){
-
+uint32_t NvmEngine::search(const Slice & key , uint64_t hash){
     // time_elasped<std::chrono::nanoseconds> tm{search_tm};
-
     const auto prefix = *reinterpret_cast<const uint32_t *>(key.data());
-    uint32_t key_index = index.search(hash , prefix ,[this , &key](uint32_t key_id ){
+    return index.search(hash , prefix ,[this , &key](uint32_t key_id ){
         return fast_key_cmp_eq(file.key_heads[key_id].key , key.data());
     });
-
-    return key_index == index.null_id ? nullptr : &file.key_heads[key_index];
 }
 
-Status NvmEngine::update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id){
+Status NvmEngine::update(const Slice & value , uint64_t hash , uint32_t key_index , uint32_t bucket_id){
 
     auto block = alloc_value_blocks(bucket_id , value.size());
     if(unlikely(is_invalid_block(block)))
         return OutOfMemory;
+
+    auto * head = &file.key_heads[key_index];
 
     auto new_head = *head ; 
     new_head.index_flag = !head->index_flag;
@@ -153,6 +162,7 @@ Status NvmEngine::update(const Slice & value , uint64_t hash , head_info * head 
     pmem_memcpy_persist(head , &new_head , sizeof(head_info));
     #endif
 
+    ver_seq[key_index].fetch_add(1 , std::memory_order_relaxed);
     return Ok;
 }
 
@@ -237,8 +247,6 @@ void NvmEngine::write_value(const Slice & value , block_index & block ,block_ind
     #define MEMCPY pmem_memcpy_nodrain
     #endif
     
-    // MEMCPY(&block, &indics , sizeof(block_index));
-    
     static_assert(sizeof(value_block) == 128 , "");
     // const uint n_block = value.size() / sizeof(value_block) + 1;
     const uint n_block = (value.size() >> 7) + 1;
@@ -263,21 +271,31 @@ void NvmEngine::write_value(const Slice & value , block_index & block ,block_ind
     #undef MEMCPY
 }
 
-void NvmEngine::read_value(std::string & value , head_info * head){
+void NvmEngine::read_value(const Slice & key ,std::string & value , uint32_t key_index , lru_cache_t & cache){
     // time_elasped<std::chrono::nanoseconds> tm{read_tm};
 
-    auto & block = head->index[head->index_flag];
+    auto info = cache.get(key_index);
+    if(likely(info && info->ver == ver_seq[key_index].load(std::memory_order_relaxed))){
+        ++ cache_targe_cnt;
+        value = info->value;
+    }else{
+
+    auto & head = file.key_heads[key_index];
+
+    auto & block = head.index[head.index_flag];
     // uint n_256 = (head->value_len / sizeof(value_block))/2; //0 1 2 3
-    const uint n_256 = head->value_len >> 8;
+    const uint n_256 = head.value_len >> 8;
 
     value.clear();
-    value.reserve(head->value_len);
-    uint res_len = head->value_len;
+    value.reserve(head.value_len);
+    uint res_len = head.value_len;
     for(uint i = 0; i < n_256; ++i , res_len -= 256){
         value.append(reinterpret_cast<const char *>(&file.value_blocks[block[i]]) , 256);
     }
-
     value.append(reinterpret_cast<const char *>(&file.value_blocks[block[n_256]]) , res_len);
+
+    cache.put(key_index , cache_info{key.data() , value});
+    }
 }
 
 

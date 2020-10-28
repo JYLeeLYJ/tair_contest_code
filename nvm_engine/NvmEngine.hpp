@@ -14,6 +14,7 @@
 #include "include/allocator.hpp"
 #include "include/open_address_hash_index.hpp"
 #include "include/bloom_filter.hpp"
+#include "include/lru_cache.hpp"
 
 class NvmEngine : DB {
 public:
@@ -54,6 +55,8 @@ private:
     static constexpr size_t BUCKET_CNT = THREAD_CNT;
     static constexpr size_t HASH_SIZE = N_KEY /2;
 
+    static constexpr size_t cache_size = N_KEY / BUCKET_CNT / 16 ;
+
 private:
 
     struct alignas(CACHELINE_SIZE) bucket_info{
@@ -61,18 +64,33 @@ private:
         uint32_t key_seq{};
     };
 
+    struct cache_info{
+        char key[KEY_SIZE];
+        uint32_t ver{};
+        std::string value{};
+        
+        explicit cache_info() = default;
+
+        explicit cache_info(const char * key , const std::string & str ){
+            value = str;
+            memcpy_avx_16(this->key , key);
+        }
+    };
+
+    using lru_cache_t = lru_cache<uint32_t , cache_info , cache_size>;
+
 private:
 
     void recovery();
     void first_init();
-    head_info* search(const Slice & key , uint64_t hash) ;
-    Status update(const Slice & value , uint64_t hash , head_info * head , uint32_t bucket_id);
+    uint32_t search(const Slice & key , uint64_t hash) ;
+    Status update(const Slice & value , uint64_t hash , uint32_t key_index , uint32_t bucket_id);
     Status append(const Slice & key , const Slice & value , uint64_t hash , uint32_t bucket_id);
 
     block_index alloc_value_blocks(uint32_t bucket_id , uint32_t len);
     void recollect_value_blocks(uint32_t bucket_id , block_index & block , uint32_t len);
     void write_value(const Slice & value  , block_index & block ,block_index & indics );
-    void read_value(std::string & value , head_info * head);
+    void read_value(const Slice & key , std::string & value , uint32_t key_index , lru_cache_t & cache);
 
     uint32_t get_bucket_id(){
         return thread_seq ++ % BUCKET_CNT;
@@ -97,13 +115,18 @@ private:
     alignas(CACHELINE_SIZE)
     std::array<bucket_info , BUCKET_CNT> bucket_infos;
 
+    // alignas(CACHELINE_SIZE)
+    // std::array<lru_cache<uint32_t , cache_info , cache_size > , BUCKET_CNT> cache; // 1GB
+
+
     open_address_hash<N_KEY * 2> index;     // 3.6GB
     bitmap_filter<N_KEY * 8> bitset{};      // 228MB
+
+    std::unique_ptr<std::atomic<uint32_t>[]> ver_seq;   //896MB
 
     static_assert(sizeof(bucket_info) == 64 , "");
     static_assert(sizeof(bucket_infos) == 1_KB , "");
 
-    // std::unique_ptr<std::atomic<uint32_t>[]> ver_seq;
 };
 
 #endif
