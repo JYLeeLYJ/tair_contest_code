@@ -15,8 +15,6 @@
 #include "include/open_address_hash_index.hpp"
 #include "include/bloom_filter.hpp"
 
-#include "tbb/concurrent_hash_map.h"
-
 class NvmEngine : DB {
 public:
     /**
@@ -105,8 +103,7 @@ private:
     static_assert(sizeof(bucket_info) == 64 , "");
     static_assert(sizeof(bucket_infos) == 1_KB , "");
 
-    tbb::concurrent_hash_map<uint64_t , head_info> cache;
-
+    // std::unique_ptr<std::atomic<uint32_t>[]> ver_seq;
 };
 
 #endif

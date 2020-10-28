@@ -63,6 +63,10 @@ NvmEngine::NvmEngine(const std::string &name) {
     else
         first_init();
 
+    // auto arr = new uint32_t[N_KEY];
+    // memset(arr , 0 , sizeof(arr));
+    // ver_seq.reset(reinterpret_cast<std::atomic<uint32_t> *>(arr));
+
     SyncLog("************* Start ***************");
 }
 
