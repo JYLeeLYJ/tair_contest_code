@@ -55,7 +55,7 @@ private:
     static constexpr size_t BUCKET_CNT = THREAD_CNT;
     static constexpr size_t HASH_SIZE = N_KEY /2;
 
-    static constexpr size_t cache_size = N_KEY / BUCKET_CNT / 16 ;
+    static constexpr size_t cache_size = (N_KEY / BUCKET_CNT) / 1_KB;
 
 private:
 
@@ -71,8 +71,9 @@ private:
         
         explicit cache_info() = default;
 
-        explicit cache_info(const char * key , const std::string & str ){
+        explicit cache_info(const char * key , uint32_t ver , const std::string & str ){
             value = str;
+            this->ver = ver;
             memcpy_avx_16(this->key , key);
         }
     };

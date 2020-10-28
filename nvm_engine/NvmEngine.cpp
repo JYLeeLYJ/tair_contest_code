@@ -294,7 +294,7 @@ void NvmEngine::read_value(const Slice & key ,std::string & value , uint32_t key
     }
     value.append(reinterpret_cast<const char *>(&file.value_blocks[block[n_256]]) , res_len);
 
-    cache.put(key_index , cache_info{key.data() , value});
+    cache.put(key_index , cache_info{key.data() , ver_seq[key_index].load(std::memory_order_relaxed) ,value});
     }
 }
 
