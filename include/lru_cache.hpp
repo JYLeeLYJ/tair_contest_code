@@ -18,16 +18,15 @@ class alignas(CACHELINE_SIZE) lru_cache{
 public:
     lru_cache(){
         auto p = new Node<K,T>[size];
-        entries_.reset( );
+        entries_.reset(p);
+        hashmap_.reserve(size);
         free_entries_.resize(size);
         for(uint i=0; i<size; ++i)
             free_entries_[i] = p + i;
-        head_.reset(new Node<K,T>);
-        tail_.reset(new Node<K,T>);
-        head_->prev = nullptr;
-        head_->next = tail_.get();
-        tail_->prev = head_.get();
-        tail_->next = nullptr;
+        head_.prev = nullptr;
+        head_.next = &tail_;
+        tail_.prev = &head_;
+        tail_.next = nullptr;
 
     }
 
@@ -40,7 +39,7 @@ public:
         }
         else{
             if(free_entries_.empty()){
-                node = tail_->prev;
+                node = tail_.prev;
                 detach(node);
                 hashmap_.erase(node->key);
             }
@@ -56,7 +55,8 @@ public:
     }
 
     T * get(K key){
-        auto *node = hashmap_[key];
+        // auto *node = hashmap_[key];
+        auto p = hashmap_.find(key);
         if(node){
             detach(node);
             attach(node);
@@ -66,21 +66,25 @@ public:
             return nullptr;
         }
     }
+
+    std::size_t free_space(){
+        return free_entries_.size();
+    }
 private:
     void detach(Node<K,T>* node){
         node->prev->next = node->next;
         node->next->prev = node->prev;
     }
     void attach(Node<K,T>* node){
-        node->prev = head_.get();
-        node->next = head_->next;
-        head_->next = node;
+        node->prev = &head_;
+        node->next = head_.next;
+        head_.next = node;
         node->next->prev = node;
     }
 private:
     std::unordered_map<K, Node<K,T>* > hashmap_;
     std::vector<Node<K,T>* > free_entries_; 
-    std::unique_ptr<Node<K,T>> head_, tail_;
+    Node<K,T> head_, tail_;
     std::unique_ptr<Node<K,T>[]> entries_; 
 };
 

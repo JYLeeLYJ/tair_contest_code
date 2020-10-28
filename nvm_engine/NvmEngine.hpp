@@ -55,9 +55,9 @@ private:
     static constexpr size_t BUCKET_CNT = THREAD_CNT;
     static constexpr size_t HASH_SIZE = N_KEY /2;
 
-    static constexpr size_t cache_size = (N_KEY / BUCKET_CNT) / 1_KB;
+    static constexpr size_t cache_size = 1_KB;
 
-private:
+public:
 
     struct alignas(CACHELINE_SIZE) bucket_info{
         value_block_allocator<N_VALUE / BUCKET_CNT> allocator;
@@ -87,6 +87,7 @@ private:
     uint32_t search(const Slice & key , uint64_t hash) ;
     Status update(const Slice & value , uint64_t hash , uint32_t key_index , uint32_t bucket_id);
     Status append(const Slice & key , const Slice & value , uint64_t hash , uint32_t bucket_id);
+    uint32_t search_get(const Slice & key , uint64_t hash , lru_cache_t & cache);
 
     block_index alloc_value_blocks(uint32_t bucket_id , uint32_t len);
     void recollect_value_blocks(uint32_t bucket_id , block_index & block , uint32_t len);
