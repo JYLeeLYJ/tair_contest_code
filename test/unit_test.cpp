@@ -10,6 +10,7 @@
 #include "allocator.hpp"
 #include "simple_test.hpp"
 #include "open_address_hash_index.hpp"
+#include "lru_cache.hpp"
 
 std::vector<std::pair<Slice , Slice>> kv_pairs{};
 
@@ -193,8 +194,6 @@ void test_allocator(){
 
     allctr.init(32,0);
 
-    static_assert(sizeof(allctr) == 64);
-
     ASSERT(allctr.allocate_128() == 32);
     ASSERT(allctr.allocate_256() == 34);
     ASSERT(allctr.allocate_256() == 36);
@@ -232,6 +231,28 @@ void test_open_address_hash(){
     //more test : out of range...
 }
 
+void test_lru_cache(){
+    lru_cache<int , std::string , 4> lru{};
+
+    lru.put(1, "1111");
+    ASSERT(lru.get(1) != nullptr );
+    ASSERT(*lru.get(1) == "1111");
+
+    ASSERT(lru.get(2) == nullptr);
+
+    lru.put(2, "22222");
+    lru.put(3, "33333");
+    lru.put(4, "44444");
+
+    lru.put(5,"555555");
+
+    ASSERT(lru.get(1) == nullptr);
+    ASSERT(lru.get(2));
+    ASSERT(lru.get(3));
+    ASSERT(lru.get(4));
+    ASSERT(lru.get(5));
+}
+
 void main_get_set_unit(){
     TEST(test_get_set_simple);
     TEST(test_recovery);
@@ -245,9 +266,10 @@ void main_unit_test(){
     TEST(test_hash_index);
     TEST(test_allocator);
     TEST(test_open_address_hash);
+    TEST(test_lru_cache);
 }
 
 int main(){
-    // MAIN(main_unit_test);
+    MAIN(main_unit_test);
     MAIN(main_get_set_unit);
 }
