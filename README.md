@@ -6,7 +6,7 @@
 
 [赛题描述](https://code.aliyun.com/db_contest_2nd/tair-contest)
 
-### 2. Season1/初赛/第一赛季 
+### 2. [Season1/初赛/第一赛季 ](https://github.com/JYLeeLYJ/tair_contest_code/tree/season1)
 
 **RANK:** 18/2170 | 
 **SCORE:** 82230
@@ -21,7 +21,7 @@
 * __builtin_expect (likely/unlikely)
 
 回想遗漏的优化点：
-* search阶段的pmemIO平均可以减少到0次(接近),从而代替不太必要的bloom filter，并节省读取时占用的XPBuffer空间
+* search阶段的pmemIO平均可以减少到0次(接近),从而代替不太必要的bloom filter，并节省读占用的XPBuffer空间
 * 挤出少量剩余内存做lru cache应该能有效较少Get阶段的pmemIO,降低latency
 
 ### 3. Season2/复赛/第二赛季
